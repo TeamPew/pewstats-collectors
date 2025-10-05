@@ -85,33 +85,47 @@ class APIKeyManager:
         logger.info(f"Initialized APIKeyManager with {len(self._keys)} keys")
 
     def select_key(self) -> APIKey:
-        """Select the next available API key using round-robin.
+        """Select the next available API key using round-robin with smart pacing.
 
-        This method will cycle through all available keys, attempting to find
-        one that hasn't exceeded its rate limit. If all keys are at their limit,
-        it returns the next key in rotation (caller should wait_if_needed).
+        This method proactively paces requests to avoid hitting rate limits.
+        It will wait the minimum time needed before returning a key.
 
         Returns:
-            The selected API key
+            The selected API key (ready to use)
         """
         # Try to find a key that can make a request immediately
-        attempts = 0
-        while attempts < len(self._keys):
+        for _ in range(len(self._keys)):
             key = self._keys[self._current_index]
             self._current_index = (self._current_index + 1) % len(self._keys)
 
             if self.can_make_request(key):
-                logger.debug(f"Selected API key with {key.rpm_limit} RPM limit")
                 return key
 
-            attempts += 1
+        # All keys are at limit - wait for the soonest available slot
+        # Find which key will be ready soonest
+        min_wait_time = float("inf")
+        next_available_key = self._keys[0]
 
-        # All keys are at limit, return the next one anyway
-        # Caller will need to wait_if_needed()
-        key = self._keys[self._current_index]
-        self._current_index = (self._current_index + 1) % len(self._keys)
-        logger.warning("All API keys at rate limit, returning next key in rotation")
-        return key
+        for key in self._keys:
+            self._clean_old_requests(key)
+            if len(key.request_times) >= key.rpm_limit:
+                oldest_request = min(key.request_times)
+                time_since_oldest = datetime.now() - oldest_request
+                wait_time = (timedelta(seconds=60) - time_since_oldest).total_seconds()
+
+                if wait_time < min_wait_time:
+                    min_wait_time = wait_time
+                    next_available_key = key
+
+        # Sleep until the next slot is available
+        if min_wait_time > 0:
+            logger.info(
+                f"All keys at limit. Pacing request: waiting {min_wait_time:.2f}s for next slot"
+            )
+            time.sleep(min_wait_time)
+            self._clean_old_requests(next_available_key)
+
+        return next_available_key
 
     def can_make_request(self, key: APIKey) -> bool:
         """Check if a request can be made with this key without hitting rate limit.

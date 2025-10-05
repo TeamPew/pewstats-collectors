@@ -323,7 +323,7 @@ def discover_matches(max_players: int, env_file: str, log_level: str):
             "POSTGRES_DB",
             "POSTGRES_USER",
             "POSTGRES_PASSWORD",
-            "PUBG_API_KEY",
+            "PUBG_API_KEYS",
             "RABBITMQ_HOST",
             "RABBITMQ_USER",
             "RABBITMQ_PASSWORD",
@@ -344,7 +344,13 @@ def discover_matches(max_players: int, env_file: str, log_level: str):
             password=os.getenv("POSTGRES_PASSWORD"),
         ) as db:
             # Initialize API key manager
-            api_keys = [{"key": os.getenv("PUBG_API_KEY"), "rpm": 10}]
+            # Parse comma-separated API keys
+            api_keys_str = os.getenv("PUBG_API_KEYS", "")
+            api_keys = [
+                {"key": key.strip(), "rpm": 10} for key in api_keys_str.split(",") if key.strip()
+            ]
+            if not api_keys:
+                raise ValueError("PUBG_API_KEYS is set but contains no valid keys")
             api_key_manager = APIKeyManager(api_keys)
 
             # Initialize PUBG client

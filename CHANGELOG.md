@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.1...v1.0.2) (2025-10-05)
+
+
+### Bug Fixes
+
+* Use PUBG_API_KEYS and format code ([a703a42](https://github.com/TeamPew/pewstats-collectors/commit/a703a4295eb8c4856f79631be2795e5372a9db76))
+* Use PUBG_API_KEYS and format code ([d8750e8](https://github.com/TeamPew/pewstats-collectors/commit/d8750e8257ed228918b34a462be8cb9822f6d5a2))
+
 ## [1.0.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.0...v1.0.1) (2025-10-05)
 
 

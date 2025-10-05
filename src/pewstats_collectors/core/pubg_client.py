@@ -25,16 +25,19 @@ logger = logging.getLogger(__name__)
 
 class PUBGAPIError(Exception):
     """Base exception for PUBG API errors."""
+
     pass
 
 
 class RateLimitError(PUBGAPIError):
     """Raised when rate limit is exceeded."""
+
     pass
 
 
 class NotFoundError(PUBGAPIError):
     """Raised when resource is not found (404)."""
+
     pass
 
 
@@ -73,7 +76,7 @@ class PUBGClient:
         "Savage_Main": "Sanhok",
         "Summerland_Main": "Karakin",
         "Tiger_Main": "Taego",
-        "Neon_Main": "Rondo"
+        "Neon_Main": "Rondo",
     }
 
     def __init__(
@@ -82,7 +85,7 @@ class PUBGClient:
         get_existing_match_ids: Callable[[], Set[str]],
         platform: str = "steam",
         max_retries: int = 3,
-        timeout: int = 30
+        timeout: int = 30,
     ):
         """Initialize PUBG API client.
 
@@ -131,7 +134,7 @@ class PUBGClient:
             return cached
 
         # Split into chunks of 10 if needed
-        chunks = [player_names[i:i+10] for i in range(0, len(player_names), 10)]
+        chunks = [player_names[i : i + 10] for i in range(0, len(player_names), 10)]
 
         if len(chunks) == 1:
             # Single request
@@ -140,7 +143,9 @@ class PUBGClient:
             result = self._make_request("/players", params=params)
         else:
             # Multiple requests - combine results
-            logger.debug(f"Fetching player info for {len(player_names)} players in {len(chunks)} chunks")
+            logger.debug(
+                f"Fetching player info for {len(player_names)} players in {len(chunks)} chunks"
+            )
             all_players = None
 
             for chunk in chunks:
@@ -179,7 +184,9 @@ class PUBGClient:
         if not player_names:
             raise ValueError("player_names cannot be empty")
 
-        logger.info(f"Getting new matches for {len(player_names)} player(s): {', '.join(player_names)}")
+        logger.info(
+            f"Getting new matches for {len(player_names)} player(s): {', '.join(player_names)}"
+        )
 
         # Get existing matches from database
         existing_match_ids = self.get_existing_match_ids()
@@ -207,7 +214,9 @@ class PUBGClient:
 
         # Filter out existing matches
         new_match_ids = all_match_ids - existing_match_ids
-        logger.info(f"Found {len(new_match_ids)} new matches (total {len(all_match_ids)}, existing {len(existing_match_ids)})")
+        logger.info(
+            f"Found {len(new_match_ids)} new matches (total {len(all_match_ids)}, existing {len(existing_match_ids)})"
+        )
 
         return list(new_match_ids)
 
@@ -270,7 +279,7 @@ class PUBGClient:
             "map_name": self.transform_map_name(attributes.get("mapName", "")),
             "match_datetime": self._parse_datetime(attributes.get("createdAt")),
             "game_mode": attributes.get("gameMode"),
-            "game_type": attributes.get("matchType", "unknown")
+            "game_type": attributes.get("matchType", "unknown"),
         }
 
         # Extract telemetry URL
@@ -295,7 +304,9 @@ class PUBGClient:
             if telemetry_asset:
                 metadata["telemetry_url"] = telemetry_asset.get("attributes", {}).get("URL")
             else:
-                logger.warning(f"Telemetry asset not found in included section for match {metadata['match_id']}")
+                logger.warning(
+                    f"Telemetry asset not found in included section for match {metadata['match_id']}"
+                )
                 metadata["telemetry_url"] = None
 
         except Exception as e:
@@ -367,10 +378,7 @@ class PUBGClient:
             cache_key: Cache key
             data: Response data to cache
         """
-        self._cache[cache_key] = {
-            "data": data,
-            "time": datetime.now()
-        }
+        self._cache[cache_key] = {"data": data, "time": datetime.now()}
 
     def clear_cache(self) -> None:
         """Clear all cached responses.
@@ -381,10 +389,7 @@ class PUBGClient:
         logger.debug("Cache cleared")
 
     def _make_request(
-        self,
-        endpoint: str,
-        params: Optional[Dict[str, str]] = None,
-        retry_count: int = 0
+        self, endpoint: str, params: Optional[Dict[str, str]] = None, retry_count: int = 0
     ) -> Dict[str, Any]:
         """Make an HTTP request to PUBG API with retries.
 
@@ -407,20 +412,12 @@ class PUBGClient:
         url = f"{self.BASE_URL}/{self.platform}{endpoint}"
 
         # Build headers
-        headers = {
-            "Authorization": f"Bearer {api_key.key}",
-            "Accept": self.CONTENT_TYPE
-        }
+        headers = {"Authorization": f"Bearer {api_key.key}", "Accept": self.CONTENT_TYPE}
 
         try:
             # Make request
             logger.debug(f"Making request to {endpoint}")
-            response = requests.get(
-                url,
-                headers=headers,
-                params=params,
-                timeout=self.timeout
-            )
+            response = requests.get(url, headers=headers, params=params, timeout=self.timeout)
 
             # Record successful request
             self.key_manager.record_request(api_key)
@@ -467,10 +464,7 @@ class PUBGClient:
             raise PUBGAPIError(f"Invalid JSON response: {e}") from e
 
     def _handle_rate_limit_retry(
-        self,
-        endpoint: str,
-        params: Optional[Dict[str, str]],
-        retry_count: int
+        self, endpoint: str, params: Optional[Dict[str, str]], retry_count: int
     ) -> Dict[str, Any]:
         """Handle rate limit (429) response with exponential backoff.
 
@@ -489,18 +483,14 @@ class PUBGClient:
             raise RateLimitError(f"Rate limit exceeded after {self.max_retries} retries")
 
         # Exponential backoff: 2^retry seconds
-        wait_time = 2 ** retry_count
+        wait_time = 2**retry_count
         logger.info(f"Rate limit hit, waiting {wait_time}s before retry {retry_count + 1}")
         time.sleep(wait_time)
 
         return self._make_request(endpoint, params, retry_count + 1)
 
     def _handle_retry(
-        self,
-        endpoint: str,
-        params: Optional[Dict[str, str]],
-        retry_count: int,
-        error: Exception
+        self, endpoint: str, params: Optional[Dict[str, str]], retry_count: int, error: Exception
     ) -> Dict[str, Any]:
         """Handle request retry with exponential backoff.
 
@@ -517,11 +507,15 @@ class PUBGClient:
             PUBGAPIError: If max retries exceeded
         """
         if retry_count >= self.max_retries:
-            raise PUBGAPIError(f"Request failed after {self.max_retries} retries: {error}") from error
+            raise PUBGAPIError(
+                f"Request failed after {self.max_retries} retries: {error}"
+            ) from error
 
         # Exponential backoff: 2^retry seconds
-        wait_time = 2 ** retry_count
-        logger.info(f"Retrying {endpoint} in {wait_time}s (attempt {retry_count + 1}/{self.max_retries})")
+        wait_time = 2**retry_count
+        logger.info(
+            f"Retrying {endpoint} in {wait_time}s (attempt {retry_count + 1}/{self.max_retries})"
+        )
         time.sleep(wait_time)
 
         return self._make_request(endpoint, params, retry_count + 1)

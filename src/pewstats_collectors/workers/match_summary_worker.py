@@ -318,9 +318,7 @@ class MatchSummaryWorker:
             }
 
             # Map each participant in this roster to team info
-            participants = (
-                roster.get("relationships", {}).get("participants", {}).get("data", [])
-            )
+            participants = roster.get("relationships", {}).get("participants", {}).get("data", [])
             for participant_ref in participants:
                 participant_id = participant_ref.get("id")
                 if participant_id:

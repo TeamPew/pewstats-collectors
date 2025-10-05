@@ -26,6 +26,7 @@ class APIKey:
         rpm_limit: Requests per minute limit for this key
         request_times: List of timestamps for requests in the last 60 seconds
     """
+
     key: str
     rpm_limit: int
     request_times: List[datetime] = field(default_factory=list)
@@ -73,12 +74,11 @@ class APIKeyManager:
         self._keys: List[APIKey] = []
         for key_config in keys:
             if "key" not in key_config or "rpm" not in key_config:
-                raise ValueError(f"Invalid key config: {key_config}. Must have 'key' and 'rpm' fields")
+                raise ValueError(
+                    f"Invalid key config: {key_config}. Must have 'key' and 'rpm' fields"
+                )
 
-            api_key = APIKey(
-                key=key_config["key"],
-                rpm_limit=key_config["rpm"]
-            )
+            api_key = APIKey(key=key_config["key"], rpm_limit=key_config["rpm"])
             self._keys.append(api_key)
 
         self._current_index = 0
@@ -182,10 +182,7 @@ class APIKeyManager:
             key: The API key to clean
         """
         cutoff_time = datetime.now() - timedelta(seconds=60)
-        key.request_times = [
-            req_time for req_time in key.request_times
-            if req_time > cutoff_time
-        ]
+        key.request_times = [req_time for req_time in key.request_times if req_time > cutoff_time]
 
     def get_stats(self) -> Dict[str, any]:
         """Get statistics about API key usage.
@@ -193,10 +190,7 @@ class APIKeyManager:
         Returns:
             Dict with statistics including per-key request counts
         """
-        stats = {
-            "total_keys": len(self._keys),
-            "keys": []
-        }
+        stats = {"total_keys": len(self._keys), "keys": []}
 
         for i, key in enumerate(self._keys):
             self._clean_old_requests(key)
@@ -205,7 +199,7 @@ class APIKeyManager:
                 "rpm_limit": key.rpm_limit,
                 "current_requests": len(key.request_times),
                 "available_requests": key.rpm_limit - len(key.request_times),
-                "utilization_pct": (len(key.request_times) / key.rpm_limit) * 100
+                "utilization_pct": (len(key.request_times) / key.rpm_limit) * 100,
             }
             stats["keys"].append(key_stats)
 

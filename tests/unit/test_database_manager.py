@@ -29,17 +29,14 @@ def db_manager(mock_connection):
     conn, cursor = mock_connection
 
     # Mock the connection pool
-    with patch('pewstats_collectors.core.database_manager.ConnectionPool') as mock_pool_class:
+    with patch("pewstats_collectors.core.database_manager.ConnectionPool") as mock_pool_class:
         mock_pool = Mock()
         mock_pool.getconn = Mock(return_value=conn)
         mock_pool.putconn = Mock()
         mock_pool_class.return_value = mock_pool
 
         db = DatabaseManager(
-            host="localhost",
-            dbname="test_db",
-            user="test_user",
-            password="test_pass"
+            host="localhost", dbname="test_db", user="test_user", password="test_pass"
         )
         yield db, cursor
 
@@ -48,21 +45,18 @@ def db_manager(mock_connection):
 # Initialization Tests
 # ============================================================================
 
+
 class TestDatabaseManagerInitialization:
     """Test database manager initialization."""
 
     def test_initialization_with_pool(self):
         """Test initialization with connection pooling."""
-        with patch('pewstats_collectors.core.database_manager.ConnectionPool') as mock_pool_class:
+        with patch("pewstats_collectors.core.database_manager.ConnectionPool") as mock_pool_class:
             mock_pool = Mock()
             mock_pool_class.return_value = mock_pool
 
             db = DatabaseManager(
-                host="localhost",
-                dbname="pubg",
-                user="test",
-                password="pass",
-                port=5433
+                host="localhost", dbname="pubg", user="test", password="pass", port=5433
             )
 
             # Should create connection pool
@@ -73,22 +67,22 @@ class TestDatabaseManagerInitialization:
 
     def test_initialization_failure(self):
         """Test initialization failure handling."""
-        with patch('pewstats_collectors.core.database_manager.ConnectionPool', side_effect=Exception("Connection failed")):
+        with patch(
+            "pewstats_collectors.core.database_manager.ConnectionPool",
+            side_effect=Exception("Connection failed"),
+        ):
             with pytest.raises(DatabaseError, match="Failed to connect to database"):
-                DatabaseManager(
-                    host="localhost",
-                    dbname="pubg",
-                    user="test",
-                    password="pass"
-                )
+                DatabaseManager(host="localhost", dbname="pubg", user="test", password="pass")
 
     def test_context_manager(self):
         """Test context manager support."""
-        with patch('pewstats_collectors.core.database_manager.ConnectionPool') as mock_pool_class:
+        with patch("pewstats_collectors.core.database_manager.ConnectionPool") as mock_pool_class:
             mock_pool = Mock()
             mock_pool_class.return_value = mock_pool
 
-            with DatabaseManager(host="localhost", dbname="pubg", user="test", password="pass") as db:
+            with DatabaseManager(
+                host="localhost", dbname="pubg", user="test", password="pass"
+            ) as db:
                 assert db is not None
 
             # Should disconnect on exit
@@ -98,6 +92,7 @@ class TestDatabaseManagerInitialization:
 # ============================================================================
 # Player Management Tests
 # ============================================================================
+
 
 class TestPlayerManagement:
     """Test player CRUD operations."""
@@ -151,7 +146,7 @@ class TestPlayerManagement:
         cursor.fetchone.return_value = {
             "player_id": "player123",
             "player_name": "TestPlayer",
-            "platform": "steam"
+            "platform": "steam",
         }
 
         result = db.get_player("player123")
@@ -193,7 +188,7 @@ class TestPlayerManagement:
         db, cursor = db_manager
         cursor.fetchall.return_value = [
             {"player_id": "p1", "player_name": "Player1"},
-            {"player_id": "p2", "player_name": "Player2"}
+            {"player_id": "p2", "player_name": "Player2"},
         ]
 
         result = db.list_players(limit=100)
@@ -218,6 +213,7 @@ class TestPlayerManagement:
 # Match Management Tests
 # ============================================================================
 
+
 class TestMatchManagement:
     """Test match CRUD operations."""
 
@@ -232,7 +228,7 @@ class TestMatchManagement:
             "game_mode": "squad-fpp",
             "match_datetime": datetime(2024, 1, 1, 12, 0, 0),
             "telemetry_url": "https://telemetry.url",
-            "game_type": "official"
+            "game_type": "official",
         }
 
         result = db.insert_match(match_data)
@@ -328,10 +324,7 @@ class TestMatchManagement:
     def test_get_matches_by_status(self, db_manager):
         """Test getting matches by status."""
         db, cursor = db_manager
-        cursor.fetchall.return_value = [
-            {"match_id": "match1"},
-            {"match_id": "match2"}
-        ]
+        cursor.fetchall.return_value = [{"match_id": "match1"}, {"match_id": "match2"}]
 
         result = db.get_matches_by_status("discovered", limit=100)
 
@@ -357,7 +350,7 @@ class TestMatchManagement:
         cursor.fetchall.return_value = [
             {"match_id": "match1"},
             {"match_id": "match2"},
-            {"match_id": "match3"}
+            {"match_id": "match3"},
         ]
 
         result = db.get_all_match_ids()
@@ -381,6 +374,7 @@ class TestMatchManagement:
 # ============================================================================
 # Match Summary Management Tests
 # ============================================================================
+
 
 class TestMatchSummaryManagement:
     """Test match summary operations (used by workers)."""
@@ -423,15 +417,15 @@ class TestMatchSummaryManagement:
                 "participant_id": "p1",
                 "player_id": "player1",
                 "player_name": "PlayerOne",
-                "kills": 5
+                "kills": 5,
             },
             {
                 "match_id": "match123",
                 "participant_id": "p2",
                 "player_id": "player2",
                 "player_name": "PlayerTwo",
-                "kills": 3
-            }
+                "kills": 3,
+            },
         ]
 
         cursor.rowcount = 2  # Mock rowcount
@@ -470,6 +464,7 @@ class TestMatchSummaryManagement:
 # Health Check Tests
 # ============================================================================
 
+
 class TestHealthCheck:
     """Test database health check."""
 
@@ -498,21 +493,17 @@ class TestHealthCheck:
 # Connection Management Tests
 # ============================================================================
 
+
 class TestConnectionManagement:
     """Test connection lifecycle management."""
 
     def test_disconnect(self):
         """Test explicit disconnect."""
-        with patch('pewstats_collectors.core.database_manager.ConnectionPool') as mock_pool_class:
+        with patch("pewstats_collectors.core.database_manager.ConnectionPool") as mock_pool_class:
             mock_pool = Mock()
             mock_pool_class.return_value = mock_pool
 
-            db = DatabaseManager(
-                host="localhost",
-                dbname="pubg",
-                user="test",
-                password="pass"
-            )
+            db = DatabaseManager(host="localhost", dbname="pubg", user="test", password="pass")
             db.disconnect()
 
             # Should close pool
@@ -520,7 +511,7 @@ class TestConnectionManagement:
 
     def test_context_manager_auto_disconnect(self):
         """Test automatic disconnect via context manager."""
-        with patch('pewstats_collectors.core.database_manager.ConnectionPool') as mock_pool_class:
+        with patch("pewstats_collectors.core.database_manager.ConnectionPool") as mock_pool_class:
             mock_pool = Mock()
             mock_pool_class.return_value = mock_pool
 

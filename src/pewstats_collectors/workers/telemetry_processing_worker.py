@@ -85,7 +85,9 @@ class TelemetryProcessingWorker:
                 self.error_count += 1
                 return {"success": False, "error": error_msg}
 
-            self.logger.debug(f"[{self.worker_id}] Parsed {len(events)} events for match {match_id}")
+            self.logger.debug(
+                f"[{self.worker_id}] Parsed {len(events)} events for match {match_id}"
+            )
 
             # Extract event types
             landings = self.extract_landings(events, match_id, data)
@@ -108,9 +110,7 @@ class TelemetryProcessingWorker:
 
         except Exception as e:
             error_msg = f"Telemetry processing failed: {str(e)}"
-            self.logger.error(
-                f"[{self.worker_id}] Match {match_id}: {error_msg}", exc_info=True
-            )
+            self.logger.error(f"[{self.worker_id}] Match {match_id}: {error_msg}", exc_info=True)
             self._update_match_status(match_id, "failed", error_msg)
             self.error_count += 1
             return {"success": False, "error": str(e)}
@@ -161,20 +161,22 @@ class TelemetryProcessingWorker:
                 continue
             seen_players.add(player_id)
 
-            landings.append({
-                "match_id": match_id,
-                "player_id": player_id,
-                "player_name": player_name,
-                "team_id": team_id,
-                "x_coordinate": x,
-                "y_coordinate": y,
-                "z_coordinate": z,
-                "is_game": is_game,
-                "map_name": match_data.get("map_name"),
-                "game_type": "unknown",  # Not in match data
-                "game_mode": match_data.get("game_mode"),
-                "match_datetime": match_data.get("match_datetime"),
-            })
+            landings.append(
+                {
+                    "match_id": match_id,
+                    "player_id": player_id,
+                    "player_name": player_name,
+                    "team_id": team_id,
+                    "x_coordinate": x,
+                    "y_coordinate": y,
+                    "z_coordinate": z,
+                    "is_game": is_game,
+                    "map_name": match_data.get("map_name"),
+                    "game_type": "unknown",  # Not in match data
+                    "game_mode": match_data.get("game_mode"),
+                    "match_datetime": match_data.get("match_datetime"),
+                }
+            )
 
         return landings
 
@@ -211,19 +213,19 @@ class TelemetryProcessingWorker:
         """
         try:
             # First decompression
-            with gzip.open(file_path, 'rb') as f:
+            with gzip.open(file_path, "rb") as f:
                 first_bytes = f.read(2)
                 f.seek(0)
 
                 # Check if double-gzipped (starts with 0x1f 0x8b)
-                if first_bytes == b'\x1f\x8b':
+                if first_bytes == b"\x1f\x8b":
                     # Double gzipped - decompress twice
-                    with gzip.open(f, 'rt', encoding='utf-8') as f2:
+                    with gzip.open(f, "rt", encoding="utf-8") as f2:
                         events = json.load(f2)
                 else:
                     # Single gzipped - read as text
                     f.seek(0)
-                    content = f.read().decode('utf-8')
+                    content = f.read().decode("utf-8")
                     events = json.loads(content)
 
             if not isinstance(events, list):
@@ -232,9 +234,7 @@ class TelemetryProcessingWorker:
             return events
 
         except Exception as e:
-            self.logger.error(
-                f"[{self.worker_id}] Failed to read telemetry file {file_path}: {e}"
-            )
+            self.logger.error(f"[{self.worker_id}] Failed to read telemetry file {file_path}: {e}")
             raise
 
     def _store_events(self, match_id: str, landings: List[Dict]) -> None:

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class RabbitMQError(Exception):
     """Custom exception for RabbitMQ operations."""
+
     pass
 
 
@@ -57,7 +58,7 @@ class RabbitMQPublisher:
         vhost: str = "/",
         environment: Optional[str] = None,
         connection_timeout: int = 10,
-        heartbeat: int = 600
+        heartbeat: int = 600,
     ):
         """Initialize RabbitMQ publisher.
 
@@ -101,7 +102,7 @@ class RabbitMQPublisher:
         username: Optional[str],
         password: Optional[str],
         vhost: str,
-        environment: Optional[str]
+        environment: Optional[str],
     ) -> Dict[str, Any]:
         """Parse configuration from parameters and environment variables.
 
@@ -126,10 +127,7 @@ class RabbitMQPublisher:
             RabbitMQError: If required configuration is missing
         """
         # Detect container environment (R compatibility)
-        is_container = (
-            Path("/.dockerenv").exists() or
-            Path("/run/.containerenv").exists()
-        )
+        is_container = Path("/.dockerenv").exists() or Path("/run/.containerenv").exists()
 
         # Parse host
         if host is None:
@@ -174,7 +172,7 @@ class RabbitMQPublisher:
             "password": password,
             "vhost": vhost,
             "environment": environment,
-            "is_container": is_container
+            "is_container": is_container,
         }
 
     def _build_queue_name(self, type: str, step: str) -> str:
@@ -222,7 +220,7 @@ class RabbitMQPublisher:
                     connection_attempts=3,
                     retry_delay=2,
                     socket_timeout=self.connection_timeout,
-                    heartbeat=self.heartbeat
+                    heartbeat=self.heartbeat,
                 )
 
                 self._connection = pika.BlockingConnection(parameters)
@@ -238,7 +236,7 @@ class RabbitMQPublisher:
         type: str,
         step: str,
         message: Dict[str, Any],
-        properties: Optional[Dict[str, Any]] = None
+        properties: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Publish message to RabbitMQ queue.
 
@@ -274,7 +272,9 @@ class RabbitMQPublisher:
             # Build AMQP properties
             amqp_properties = pika.BasicProperties(
                 delivery_mode=2,  # Persistent message
-                content_type=properties.get("content_type", "application/json") if properties else "application/json"
+                content_type=properties.get("content_type", "application/json")
+                if properties
+                else "application/json",
             )
 
             # Publish to default exchange with routing_key = queue_name
@@ -283,7 +283,7 @@ class RabbitMQPublisher:
                 exchange="",  # Default exchange (R uses this)
                 routing_key=routing_key,
                 body=payload,
-                properties=amqp_properties
+                properties=amqp_properties,
             )
 
             logger.debug(f"Published message to queue: {routing_key}")
@@ -298,13 +298,13 @@ class RabbitMQPublisher:
 
         Safe to call multiple times.
         """
-        if hasattr(self, '_channel') and self._channel and not self._channel.is_closed:
+        if hasattr(self, "_channel") and self._channel and not self._channel.is_closed:
             try:
                 self._channel.close()
             except Exception as e:
                 logger.warning(f"Error closing channel: {e}")
 
-        if hasattr(self, '_connection') and self._connection and not self._connection.is_closed:
+        if hasattr(self, "_connection") and self._connection and not self._connection.is_closed:
             try:
                 self._connection.close()
                 logger.debug("RabbitMQ connection closed")

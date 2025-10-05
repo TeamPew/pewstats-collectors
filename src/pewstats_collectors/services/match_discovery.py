@@ -50,7 +50,7 @@ class MatchDiscoveryService:
         database: DatabaseManager,
         pubg_client: PUBGClient,
         rabbitmq_publisher: RabbitMQPublisher,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
     ):
         """Initialize match discovery service.
 
@@ -214,7 +214,7 @@ class MatchDiscoveryService:
             "processed": processed_count,
             "failed": failed_count,
             "queued": queued_count,
-            "timestamp": datetime.now()
+            "timestamp": datetime.now(),
         }
 
     def _queue_match(self, match_id: str) -> bool:
@@ -235,8 +235,8 @@ class MatchDiscoveryService:
                 message={
                     "match_id": match_id,
                     "timestamp": datetime.now().isoformat(),
-                    "source": "match-discovery-pipeline"
-                }
+                    "source": "match-discovery-pipeline",
+                },
             )
         except Exception as e:
             self.logger.error(f"Failed to queue match {match_id}: {e}")
@@ -261,7 +261,7 @@ class MatchDiscoveryService:
                 "match_datetime": datetime.now(),
                 "game_mode": "Unknown",
                 "telemetry_url": None,
-                "game_type": "unknown"
+                "game_type": "unknown",
             }
 
             self.database.insert_match(minimal_metadata)
@@ -281,7 +281,7 @@ class MatchDiscoveryService:
             "processed": 0,
             "failed": 0,
             "queued": 0,
-            "timestamp": datetime.now()
+            "timestamp": datetime.now(),
         }
 
 
@@ -289,10 +289,11 @@ class MatchDiscoveryService:
 # CLI Entry Point
 # ============================================================================
 
+
 @click.command()
-@click.option('--max-players', default=500, help='Maximum players to check (default: 500)')
-@click.option('--env-file', default='.env', help='Path to .env file (default: .env)')
-@click.option('--log-level', default='INFO', help='Log level (default: INFO)')
+@click.option("--max-players", default=500, help="Maximum players to check (default: 500)")
+@click.option("--env-file", default=".env", help="Path to .env file (default: .env)")
+@click.option("--log-level", default="INFO", help="Log level (default: INFO)")
 def discover_matches(max_players: int, env_file: str, log_level: str):
     """Discover new PUBG matches for tracked players.
 
@@ -311,15 +312,21 @@ def discover_matches(max_players: int, env_file: str, log_level: str):
     # Setup logging
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     logger = logging.getLogger(__name__)
 
     try:
         # Validate required environment variables
         required_vars = [
-            "POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD",
-            "PUBG_API_KEY", "RABBITMQ_HOST", "RABBITMQ_USER", "RABBITMQ_PASSWORD"
+            "POSTGRES_HOST",
+            "POSTGRES_DB",
+            "POSTGRES_USER",
+            "POSTGRES_PASSWORD",
+            "PUBG_API_KEY",
+            "RABBITMQ_HOST",
+            "RABBITMQ_USER",
+            "RABBITMQ_PASSWORD",
         ]
 
         missing_vars = [var for var in required_vars if not os.getenv(var)]
@@ -334,17 +341,15 @@ def discover_matches(max_players: int, env_file: str, log_level: str):
             port=int(os.getenv("POSTGRES_PORT", "5432")),
             dbname=os.getenv("POSTGRES_DB"),
             user=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD")
+            password=os.getenv("POSTGRES_PASSWORD"),
         ) as db:
-
             # Initialize API key manager
             api_keys = [{"key": os.getenv("PUBG_API_KEY"), "rpm": 10}]
             api_key_manager = APIKeyManager(api_keys)
 
             # Initialize PUBG client
             pubg_client = PUBGClient(
-                api_key_manager=api_key_manager,
-                get_existing_match_ids=db.get_all_match_ids
+                api_key_manager=api_key_manager, get_existing_match_ids=db.get_all_match_ids
             )
 
             # Initialize RabbitMQ publisher
@@ -355,24 +360,24 @@ def discover_matches(max_players: int, env_file: str, log_level: str):
                 database=db,
                 pubg_client=pubg_client,
                 rabbitmq_publisher=rabbitmq_publisher,
-                logger=logger
+                logger=logger,
             )
 
             result = service.run(max_players=max_players)
 
             # Output summary
-            click.echo("\n" + "="*60)
+            click.echo("\n" + "=" * 60)
             click.echo("Match Discovery Complete")
-            click.echo("="*60)
+            click.echo("=" * 60)
             click.echo(f"  Total matches found: {result['total_matches']}")
             click.echo(f"  Successfully processed: {result['processed']}")
             click.echo(f"  Failed: {result['failed']}")
             click.echo(f"  Queued for processing: {result['queued']}")
             click.echo(f"  Timestamp: {result['timestamp']}")
-            click.echo("="*60 + "\n")
+            click.echo("=" * 60 + "\n")
 
             # Exit with appropriate code
-            if result['failed'] > 0:
+            if result["failed"] > 0:
                 click.echo(f"Warning: {result['failed']} matches failed to process", err=True)
 
     except Exception as e:
@@ -381,5 +386,5 @@ def discover_matches(max_players: int, env_file: str, log_level: str):
         raise click.Abort()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     discover_matches()

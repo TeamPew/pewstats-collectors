@@ -23,6 +23,7 @@ from psycopg.rows import dict_row
 # Try to import connection pool, fallback to single connection if not available
 try:
     from psycopg_pool import ConnectionPool
+
     HAS_POOL = True
 except ImportError:
     HAS_POOL = False
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 class DatabaseError(Exception):
     """Custom exception for database operations."""
+
     pass
 
 
@@ -59,7 +61,7 @@ class DatabaseManager:
         port: int = 5432,
         min_pool_size: int = 2,
         max_pool_size: int = 10,
-        sslmode: str = "disable"
+        sslmode: str = "disable",
     ):
         """Initialize database manager with connection pooling.
 
@@ -94,19 +96,15 @@ class DatabaseManager:
                     conninfo,
                     min_size=min_pool_size,
                     max_size=max_pool_size,
-                    kwargs={"row_factory": dict_row}
+                    kwargs={"row_factory": dict_row},
                 )
                 self._conn = None
-                logger.info(
-                    f"Database connection pool initialized: {host}:{port}/{dbname}"
-                )
+                logger.info(f"Database connection pool initialized: {host}:{port}/{dbname}")
             else:
                 # Fallback to single connection
                 self._pool = None
                 self._conn = psycopg.connect(conninfo, row_factory=dict_row)
-                logger.info(
-                    f"Database single connection initialized: {host}:{port}/{dbname}"
-                )
+                logger.info(f"Database single connection initialized: {host}:{port}/{dbname}")
         except Exception as e:
             raise DatabaseError(f"Failed to connect to database: {e}")
 
@@ -144,10 +142,10 @@ class DatabaseManager:
 
     def disconnect(self) -> None:
         """Close all connections in pool or single connection."""
-        if hasattr(self, '_pool') and self._pool:
+        if hasattr(self, "_pool") and self._pool:
             self._pool.close()
             logger.info("Database connection pool closed")
-        elif hasattr(self, '_conn') and self._conn:
+        elif hasattr(self, "_conn") and self._conn:
             self._conn.close()
             logger.info("Database connection closed")
 
@@ -166,11 +164,7 @@ class DatabaseManager:
             logger.error(f"Database ping failed: {e}")
             return False
 
-    def execute_query(
-        self,
-        query: str,
-        params: Optional[tuple] = None
-    ) -> List[Dict[str, Any]]:
+    def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
         """Execute a SELECT query and return results.
 
         Args:
@@ -226,11 +220,7 @@ class DatabaseManager:
             raise DatabaseError(f"Failed to check player existence: {e}")
 
     def register_player(
-        self,
-        player_name: str,
-        player_id: str,
-        platform: str = "steam",
-        table_name: str = "players"
+        self, player_name: str, player_id: str, platform: str = "steam", table_name: str = "players"
     ) -> bool:
         """Register a new player.
 
@@ -265,11 +255,7 @@ class DatabaseManager:
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to register player: {e}")
 
-    def get_player(
-        self,
-        player_id: str,
-        table_name: str = "players"
-    ) -> Optional[Dict[str, Any]]:
+    def get_player(self, player_id: str, table_name: str = "players") -> Optional[Dict[str, Any]]:
         """Get player information.
 
         Args:
@@ -296,12 +282,7 @@ class DatabaseManager:
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to get player: {e}")
 
-    def update_player(
-        self,
-        player_id: str,
-        player_name: str,
-        table_name: str = "players"
-    ) -> bool:
+    def update_player(self, player_id: str, player_name: str, table_name: str = "players") -> bool:
         """Update player information.
 
         Args:
@@ -317,8 +298,7 @@ class DatabaseManager:
         """
         try:
             query = sql.SQL(
-                "UPDATE {} SET player_name = %s, updated_at = NOW() "
-                "WHERE player_id = %s"
+                "UPDATE {} SET player_name = %s, updated_at = NOW() WHERE player_id = %s"
             ).format(sql.Identifier(table_name))
 
             with self._get_connection() as conn:
@@ -330,11 +310,7 @@ class DatabaseManager:
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to update player: {e}")
 
-    def list_players(
-        self,
-        table_name: str = "players",
-        limit: int = 200
-    ) -> List[Dict[str, Any]]:
+    def list_players(self, table_name: str = "players", limit: int = 200) -> List[Dict[str, Any]]:
         """List all registered players.
 
         Args:
@@ -348,9 +324,9 @@ class DatabaseManager:
             DatabaseError: If query fails
         """
         try:
-            query = sql.SQL(
-                "SELECT * FROM {} ORDER BY created_at DESC LIMIT %s"
-            ).format(sql.Identifier(table_name))
+            query = sql.SQL("SELECT * FROM {} ORDER BY created_at DESC LIMIT %s").format(
+                sql.Identifier(table_name)
+            )
 
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
@@ -365,11 +341,7 @@ class DatabaseManager:
     # Match Management
     # ========================================================================
 
-    def insert_match(
-        self,
-        match_data: Dict[str, Any],
-        table_name: str = "matches"
-    ) -> bool:
+    def insert_match(self, match_data: Dict[str, Any], table_name: str = "matches") -> bool:
         """Insert a new match record.
 
         Uses ON CONFLICT DO NOTHING for idempotency - safe to call multiple times.
@@ -411,8 +383,15 @@ class DatabaseManager:
                 with conn.cursor() as cur:
                     cur.execute(
                         query,
-                        (match_id, map_name, game_mode, match_datetime,
-                         telemetry_url, status, game_type)
+                        (
+                            match_id,
+                            map_name,
+                            game_mode,
+                            match_datetime,
+                            telemetry_url,
+                            status,
+                            game_type,
+                        ),
                     )
                     conn.commit()
                     # Return True only if row was actually inserted
@@ -428,7 +407,7 @@ class DatabaseManager:
         match_id: str,
         status: str,
         error_message: Optional[str] = None,
-        table_name: str = "matches"
+        table_name: str = "matches",
     ) -> bool:
         """Update match status.
 
@@ -447,8 +426,7 @@ class DatabaseManager:
         try:
             if error_message is None:
                 query = sql.SQL(
-                    "UPDATE {} SET status = %s, updated_at = NOW() "
-                    "WHERE match_id = %s"
+                    "UPDATE {} SET status = %s, updated_at = NOW() WHERE match_id = %s"
                 ).format(sql.Identifier(table_name))
                 params = (status, match_id)
             else:
@@ -467,11 +445,7 @@ class DatabaseManager:
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to update match status: {e}")
 
-    def get_matches_by_status(
-        self,
-        status: str = "discovered",
-        limit: int = 5000
-    ) -> List[str]:
+    def get_matches_by_status(self, status: str = "discovered", limit: int = 5000) -> List[str]:
         """Get matches by status.
 
         Args:
@@ -486,8 +460,7 @@ class DatabaseManager:
         """
         try:
             query = sql.SQL(
-                "SELECT match_id FROM matches WHERE status = %s "
-                "ORDER BY created_at ASC LIMIT %s"
+                "SELECT match_id FROM matches WHERE status = %s ORDER BY created_at ASC LIMIT %s"
             )
 
             with self._get_connection() as conn:
@@ -544,9 +517,7 @@ class DatabaseManager:
             DatabaseError: If query fails
         """
         try:
-            query = sql.SQL(
-                "SELECT COUNT(*) as count FROM match_summaries WHERE match_id = %s"
-            )
+            query = sql.SQL("SELECT COUNT(*) as count FROM match_summaries WHERE match_id = %s")
 
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
@@ -558,10 +529,7 @@ class DatabaseManager:
             logger.warning(f"Failed to check match summaries existence: {e}")
             return False
 
-    def insert_match_summaries(
-        self,
-        summaries: List[Dict[str, Any]]
-    ) -> int:
+    def insert_match_summaries(self, summaries: List[Dict[str, Any]]) -> int:
         """Insert match summaries in bulk with conflict handling.
 
         Uses ON CONFLICT DO NOTHING for idempotency - safe to call multiple times.
@@ -588,7 +556,7 @@ class DatabaseManager:
                 "ON CONFLICT (match_id, participant_id) DO NOTHING"
             ).format(
                 sql.SQL(", ").join(map(sql.Identifier, columns)),
-                sql.SQL(", ").join(sql.Placeholder() * len(columns))
+                sql.SQL(", ").join(sql.Placeholder() * len(columns)),
             )
 
             with self._get_connection() as conn:
@@ -715,7 +683,7 @@ class DatabaseManager:
         kills_processed: Optional[bool] = None,
         circles_processed: Optional[bool] = None,
         weapons_processed: Optional[bool] = None,
-        damage_processed: Optional[bool] = None
+        damage_processed: Optional[bool] = None,
     ) -> bool:
         """Update match processing flags.
 

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class RabbitMQConsumerError(Exception):
     """Custom exception for RabbitMQ consumer operations."""
+
     pass
 
 
@@ -59,7 +60,7 @@ class RabbitMQConsumer:
         environment: str = "prod",
         prefetch_count: int = 1,
         connection_timeout: int = 10,
-        heartbeat: int = 600
+        heartbeat: int = 600,
     ):
         """Initialize RabbitMQ consumer.
 
@@ -132,7 +133,7 @@ class RabbitMQConsumer:
                     connection_attempts=3,
                     retry_delay=2,
                     socket_timeout=self.connection_timeout,
-                    heartbeat=self.heartbeat
+                    heartbeat=self.heartbeat,
                 )
 
                 self._connection = pika.BlockingConnection(parameters)
@@ -151,7 +152,7 @@ class RabbitMQConsumer:
         type: str,
         step: str,
         callback: Callable[[Dict[str, Any]], Dict[str, Any]],
-        auto_ack: bool = True
+        auto_ack: bool = True,
     ) -> None:
         """Start consuming messages from queue (daemon mode).
 
@@ -180,16 +181,11 @@ class RabbitMQConsumer:
 
             # Define message callback
             def on_message(channel, method, properties, body):
-                self._on_message_callback(
-                    channel, method, properties, body,
-                    callback, auto_ack
-                )
+                self._on_message_callback(channel, method, properties, body, callback, auto_ack)
 
             # Start consuming
             self._channel.basic_consume(
-                queue=queue_name,
-                on_message_callback=on_message,
-                auto_ack=auto_ack
+                queue=queue_name, on_message_callback=on_message, auto_ack=auto_ack
             )
 
             self._consuming = True
@@ -211,7 +207,7 @@ class RabbitMQConsumer:
         step: str,
         callback: Callable[[Dict[str, Any]], Dict[str, Any]],
         max_messages: int = 10,
-        auto_ack: bool = True
+        auto_ack: bool = True,
     ) -> int:
         """Consume a batch of messages then stop (batch mode).
 
@@ -241,9 +237,7 @@ class RabbitMQConsumer:
 
             # Process messages one at a time
             for method_frame, properties, body in self._channel.consume(
-                queue=queue_name,
-                auto_ack=auto_ack,
-                inactivity_timeout=1.0
+                queue=queue_name, auto_ack=auto_ack, inactivity_timeout=1.0
             ):
                 # Check for timeout (no more messages)
                 if method_frame is None:
@@ -269,7 +263,9 @@ class RabbitMQConsumer:
             # Cancel consumption
             self._channel.cancel()
 
-            logger.info(f"Batch processing complete: {processed_count}/{max_messages} messages processed")
+            logger.info(
+                f"Batch processing complete: {processed_count}/{max_messages} messages processed"
+            )
 
             return processed_count
 
@@ -284,7 +280,7 @@ class RabbitMQConsumer:
         properties: pika.spec.BasicProperties,
         body: bytes,
         callback: Callable[[Dict[str, Any]], Dict[str, Any]],
-        auto_ack: bool
+        auto_ack: bool,
     ) -> None:
         """Internal callback for processing messages.
 
@@ -329,9 +325,7 @@ class RabbitMQConsumer:
                 channel.basic_nack(method.delivery_tag, requeue=False)
 
     def _process_message(
-        self,
-        body: bytes,
-        callback: Callable[[Dict[str, Any]], Dict[str, Any]]
+        self, body: bytes, callback: Callable[[Dict[str, Any]], Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Process a single message.
 
@@ -346,7 +340,7 @@ class RabbitMQConsumer:
         """
         try:
             # Parse JSON payload
-            message_data = json.loads(body.decode('utf-8'))
+            message_data = json.loads(body.decode("utf-8"))
 
             match_id = message_data.get("match_id", "unknown")
             logger.debug(f"Processing message for match: {match_id}")
@@ -362,7 +356,9 @@ class RabbitMQConsumer:
             if result["success"]:
                 logger.info(f"Successfully processed match: {match_id}")
             else:
-                logger.error(f"Failed to process match {match_id}: {result.get('error', 'Unknown error')}")
+                logger.error(
+                    f"Failed to process match {match_id}: {result.get('error', 'Unknown error')}"
+                )
 
             return result
 
@@ -396,13 +392,13 @@ class RabbitMQConsumer:
         """
         self.stop_consuming()
 
-        if hasattr(self, '_channel') and self._channel and not self._channel.is_closed:
+        if hasattr(self, "_channel") and self._channel and not self._channel.is_closed:
             try:
                 self._channel.close()
             except Exception as e:
                 logger.warning(f"Error closing channel: {e}")
 
-        if hasattr(self, '_connection') and self._connection and not self._connection.is_closed:
+        if hasattr(self, "_connection") and self._connection and not self._connection.is_closed:
             try:
                 self._connection.close()
                 logger.debug("RabbitMQ connection closed")

@@ -346,7 +346,9 @@ def discover_matches(max_players: int, env_file: str, log_level: str):
             # Initialize API key manager
             # Parse comma-separated API keys
             api_keys_str = os.getenv("PUBG_API_KEYS", "")
-            api_keys = [{"key": key.strip(), "rpm": 10} for key in api_keys_str.split(",") if key.strip()]
+            api_keys = [
+                {"key": key.strip(), "rpm": 10} for key in api_keys_str.split(",") if key.strip()
+            ]
             if not api_keys:
                 raise ValueError("PUBG_API_KEYS is set but contains no valid keys")
             api_key_manager = APIKeyManager(api_keys)

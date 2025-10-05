@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.0...v1.0.1) (2025-10-05)
+
+
+### Bug Fixes
+
+* Update compose.yaml for production deployment ([1104a3f](https://github.com/TeamPew/pewstats-collectors/commit/1104a3f8cb6ac526c8374e7c93b9d3fd2c9a8d9f))
+* Update compose.yaml for production deployment ([440c8b6](https://github.com/TeamPew/pewstats-collectors/commit/440c8b6721b7c6e0cfb8a312aa0e8bc0e31e4173))
+
 ## 1.0.0 (2025-10-05)
 
 

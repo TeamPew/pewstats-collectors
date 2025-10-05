@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.2...v1.0.3) (2025-10-05)
+
+
+### Bug Fixes
+
+* Add __main__ blocks to workers and continuous loop to match_disc… ([3f04fde](https://github.com/TeamPew/pewstats-collectors/commit/3f04fde562ced77b69cedd44eb94f4ff8bbf6fa4))
+* Add __main__ blocks to workers and continuous loop to match_discovery ([b5bd307](https://github.com/TeamPew/pewstats-collectors/commit/b5bd3074d63117a280ccf8ae4fdfd9673947be3d))
+
 ## [1.0.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.1...v1.0.2) (2025-10-05)
 
 

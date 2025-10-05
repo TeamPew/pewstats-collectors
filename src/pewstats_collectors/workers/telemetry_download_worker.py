@@ -364,3 +364,47 @@ def is_gzipped(file_path: str) -> bool:
         return magic == b"\x1f\x8b"
     except (IOError, OSError):
         return False
+
+
+if __name__ == "__main__":
+    import os
+    from pewstats_collectors.core.database_manager import DatabaseManager
+    from pewstats_collectors.core.rabbitmq_consumer import RabbitMQConsumer
+
+    # Configure logging
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+    # Initialize database manager
+    db_manager = DatabaseManager(
+        host=os.getenv("POSTGRES_HOST"),
+        port=int(os.getenv("POSTGRES_PORT", "5432")),
+        dbname=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+    )
+
+    # Initialize worker
+    worker = TelemetryDownloadWorker(
+        database_manager=db_manager,
+        storage_path=os.getenv("TELEMETRY_STORAGE_PATH", "/opt/pewstats-platform/data/telemetry"),
+        worker_id=os.getenv("WORKER_ID", "telemetry-download-worker-1"),
+    )
+
+    # Initialize consumer
+    consumer = RabbitMQConsumer(
+        host=os.getenv("RABBITMQ_HOST"),
+        port=int(os.getenv("RABBITMQ_PORT", "5672")),
+        user=os.getenv("RABBITMQ_USER", "guest"),
+        password=os.getenv("RABBITMQ_PASSWORD", "guest"),
+        vhost=os.getenv("RABBITMQ_VHOST", "/"),
+        queue_name="telemetry_downloads",
+        callback=worker.process_message,
+        environment=os.getenv("ENVIRONMENT", "development"),
+    )
+
+    # Start consuming
+    print(f"Starting telemetry download worker: {worker.worker_id}")
+    consumer.start_consuming()

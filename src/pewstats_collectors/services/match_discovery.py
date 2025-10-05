@@ -393,4 +393,17 @@ def discover_matches(max_players: int, env_file: str, log_level: str):
 
 
 if __name__ == "__main__":
-    discover_matches()
+    import time
+
+    # Run continuously with 10 minute interval
+    interval = int(os.getenv("DISCOVERY_INTERVAL", "600"))  # Default 10 minutes
+    logger.info(f"Starting match discovery service (interval: {interval}s)")
+
+    while True:
+        try:
+            discover_matches()
+        except Exception as e:
+            logger.error(f"Match discovery run failed: {e}")
+
+        logger.info(f"Sleeping for {interval} seconds...")
+        time.sleep(interval)

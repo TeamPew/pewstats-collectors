@@ -1,4 +1,4 @@
-name: Build and Push Staging Image
+name: Develop - Test and Build Staging
 
 on:
   push:
@@ -10,7 +10,36 @@ permissions:
   packages: write
 
 jobs:
-  build-and-push-staging:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: |
+          pytest tests/unit/ -v --tb=short --cov=src/pewstats_collectors --cov-report=term-missing
+
+      - name: Run linter
+        run: |
+          ruff check src/ tests/
+
+      - name: Run formatter check
+        run: |
+          ruff format --check src/ tests/
+
+  build-staging:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,19 +51,9 @@ jobs:
       - name: Generate version tag
         id: version
         run: |
-          # Get short SHA for unique identification
           SHORT_SHA=$(git rev-parse --short HEAD)
-          # Get version from VERSION file or default to 0.0.0
-          VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
+          VERSION=$(cat VERSION 2>/dev/null || echo "0.1.0")
           echo "staging_version=${VERSION}-staging.${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-
-      - name: Debug variables
-        run: |
-          echo "Repository (original): $GITHUB_REPOSITORY"
-          echo "Repository (lowercase): ${{ steps.lowercase.outputs.repository }}"
-          echo "Staging version: ${{ steps.version.outputs.staging_version }}"
-          echo "Short SHA: ${{ steps.version.outputs.short_sha }}"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -43,7 +62,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push staging Docker image
+      - name: Build and push staging image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -55,14 +74,11 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
 
-      - name: Image summary
+      - name: Summary
         run: |
-          echo "## Staging Image Built and Pushed 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Staging Image Built" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
           echo "- \`ghcr.io/${{ steps.lowercase.outputs.repository }}:staging\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`ghcr.io/${{ steps.lowercase.outputs.repository }}:${{ steps.version.outputs.staging_version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

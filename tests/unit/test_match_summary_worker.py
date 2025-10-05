@@ -3,13 +3,12 @@ Unit tests for Match Summary Worker
 """
 
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import Mock, MagicMock, patch, call
+from datetime import datetime
+from unittest.mock import Mock
 from pewstats_collectors.workers.match_summary_worker import (
     MatchSummaryWorker,
     transform_map_name,
     parse_datetime,
-    MAP_NAME_TRANSLATIONS,
 )
 
 
@@ -104,22 +103,16 @@ class TestMatchSummaryWorker:
     def test_extract_telemetry_url_valid_data(self, worker):
         """Should extract telemetry URL from valid match data"""
         match_data = {
-            "data": {
-                "relationships": {
-                    "assets": {
-                        "data": [{"id": "asset-123", "type": "asset"}]
-                    }
-                }
-            },
+            "data": {"relationships": {"assets": {"data": [{"id": "asset-123", "type": "asset"}]}}},
             "included": [
                 {
                     "type": "asset",
                     "id": "asset-123",
                     "attributes": {
                         "URL": "https://telemetry-cdn.pubg.com/bluehole-pubg/pc-2018/2024/01/15/match.json"
-                    }
+                    },
                 }
-            ]
+            ],
         }
 
         url = worker.extract_telemetry_url(match_data)
@@ -127,11 +120,7 @@ class TestMatchSummaryWorker:
 
     def test_extract_telemetry_url_missing_assets(self, worker):
         """Should return None if no assets in data"""
-        match_data = {
-            "data": {
-                "relationships": {}
-            }
-        }
+        match_data = {"data": {"relationships": {}}}
 
         url = worker.extract_telemetry_url(match_data)
         assert url is None
@@ -139,14 +128,8 @@ class TestMatchSummaryWorker:
     def test_extract_telemetry_url_asset_not_in_included(self, worker):
         """Should return None if asset not found in included"""
         match_data = {
-            "data": {
-                "relationships": {
-                    "assets": {
-                        "data": [{"id": "asset-123"}]
-                    }
-                }
-            },
-            "included": []
+            "data": {"relationships": {"assets": {"data": [{"id": "asset-123"}]}}},
+            "included": [],
         }
 
         url = worker.extract_telemetry_url(match_data)
@@ -156,30 +139,15 @@ class TestMatchSummaryWorker:
         """Should create correct roster lookup mapping"""
         rosters = [
             {
-                "attributes": {
-                    "stats": {"teamId": 1, "rank": 2},
-                    "won": "true"
-                },
+                "attributes": {"stats": {"teamId": 1, "rank": 2}, "won": "true"},
                 "relationships": {
-                    "participants": {
-                        "data": [
-                            {"id": "participant-1"},
-                            {"id": "participant-2"}
-                        ]
-                    }
-                }
+                    "participants": {"data": [{"id": "participant-1"}, {"id": "participant-2"}]}
+                },
             },
             {
-                "attributes": {
-                    "stats": {"teamId": 2, "rank": 5},
-                    "won": "false"
-                },
-                "relationships": {
-                    "participants": {
-                        "data": [{"id": "participant-3"}]
-                    }
-                }
-            }
+                "attributes": {"stats": {"teamId": 2, "rank": 5}, "won": "false"},
+                "relationships": {"participants": {"data": [{"id": "participant-3"}]}},
+            },
         ]
 
         lookup = worker.create_roster_lookup(rosters)
@@ -225,9 +193,9 @@ class TestMatchSummaryWorker:
                     "killStreaks": 1,
                     "killPlace": 3,
                     "winPlace": 5,
-                    "deathType": "byplayer"
+                    "deathType": "byplayer",
                 }
-            }
+            },
         }
 
         match_info = {
@@ -239,20 +207,12 @@ class TestMatchSummaryWorker:
             "isCustomMatch": False,
             "matchType": "official",
             "seasonState": "progress",
-            "titleId": "pubg"
+            "titleId": "pubg",
         }
 
-        roster_lookup = {
-            "participant-123": {
-                "team_id": 5,
-                "team_rank": 2,
-                "won": False
-            }
-        }
+        roster_lookup = {"participant-123": {"team_id": 5, "team_rank": 2, "won": False}}
 
-        data = worker.extract_participant_data(
-            participant, match_info, "match-123", roster_lookup
-        )
+        data = worker.extract_participant_data(participant, match_info, "match-123", roster_lookup)
 
         assert data["match_id"] == "match-123"
         assert data["participant_id"] == "participant-123"
@@ -275,14 +235,12 @@ class TestMatchSummaryWorker:
         """Should handle missing team info gracefully"""
         participant = {
             "id": "participant-123",
-            "attributes": {"stats": {"playerId": "account.abc", "name": "Test"}}
+            "attributes": {"stats": {"playerId": "account.abc", "name": "Test"}},
         }
         match_info = {"mapName": "Baltic_Main", "createdAt": "2024-01-15T14:30:45Z"}
         roster_lookup = {}
 
-        data = worker.extract_participant_data(
-            participant, match_info, "match-123", roster_lookup
-        )
+        data = worker.extract_participant_data(participant, match_info, "match-123", roster_lookup)
 
         assert data["team_id"] is None
         assert data["team_rank"] is None
@@ -297,48 +255,32 @@ class TestMatchSummaryWorker:
                     "mapName": "Baltic_Main",
                     "gameMode": "squad-fpp",
                     "duration": 1800,
-                    "createdAt": "2024-01-15T14:30:45Z"
-                }
+                    "createdAt": "2024-01-15T14:30:45Z",
+                },
             },
             "included": [
                 {
                     "type": "participant",
                     "id": "participant-1",
                     "attributes": {
-                        "stats": {
-                            "playerId": "account.player1",
-                            "name": "Player1",
-                            "kills": 5
-                        }
-                    }
+                        "stats": {"playerId": "account.player1", "name": "Player1", "kills": 5}
+                    },
                 },
                 {
                     "type": "participant",
                     "id": "participant-2",
                     "attributes": {
-                        "stats": {
-                            "playerId": "account.player2",
-                            "name": "Player2",
-                            "kills": 3
-                        }
-                    }
+                        "stats": {"playerId": "account.player2", "name": "Player2", "kills": 3}
+                    },
                 },
                 {
                     "type": "roster",
-                    "attributes": {
-                        "stats": {"teamId": 1, "rank": 1},
-                        "won": "true"
-                    },
+                    "attributes": {"stats": {"teamId": 1, "rank": 1}, "won": "true"},
                     "relationships": {
-                        "participants": {
-                            "data": [
-                                {"id": "participant-1"},
-                                {"id": "participant-2"}
-                            ]
-                        }
-                    }
-                }
-            ]
+                        "participants": {"data": [{"id": "participant-1"}, {"id": "participant-2"}]}
+                    },
+                },
+            ],
         }
 
         summaries = worker.parse_match_summaries(match_data)
@@ -351,10 +293,7 @@ class TestMatchSummaryWorker:
 
     def test_parse_match_summaries_no_participants(self, worker):
         """Should return empty list if no participants"""
-        match_data = {
-            "data": {"id": "match-123", "attributes": {}},
-            "included": []
-        }
+        match_data = {"data": {"id": "match-123", "attributes": {}}, "included": []}
 
         summaries = worker.parse_match_summaries(match_data)
         assert summaries == []
@@ -412,34 +351,32 @@ class TestMatchSummaryWorker:
                 "attributes": {
                     "mapName": "Baltic_Main",
                     "gameMode": "squad-fpp",
-                    "createdAt": "2024-01-15T14:30:45Z"
+                    "createdAt": "2024-01-15T14:30:45Z",
                 },
-                "relationships": {
-                    "assets": {"data": [{"id": "asset-1"}]}
-                }
+                "relationships": {"assets": {"data": [{"id": "asset-1"}]}},
             },
             "included": [
                 {
                     "type": "asset",
                     "id": "asset-1",
-                    "attributes": {"URL": "https://telemetry.pubg.com/match.json"}
+                    "attributes": {"URL": "https://telemetry.pubg.com/match.json"},
                 },
                 {
                     "type": "participant",
                     "id": "p1",
-                    "attributes": {"stats": {"playerId": "a1", "name": "Player1"}}
+                    "attributes": {"stats": {"playerId": "a1", "name": "Player1"}},
                 },
                 {
                     "type": "participant",
                     "id": "p2",
-                    "attributes": {"stats": {"playerId": "a2", "name": "Player2"}}
+                    "attributes": {"stats": {"playerId": "a2", "name": "Player2"}},
                 },
                 {
                     "type": "roster",
                     "attributes": {"stats": {"teamId": 1, "rank": 1}, "won": "true"},
-                    "relationships": {"participants": {"data": [{"id": "p1"}, {"id": "p2"}]}}
-                }
-            ]
+                    "relationships": {"participants": {"data": [{"id": "p1"}, {"id": "p2"}]}},
+                },
+            ],
         }
 
         mock_rabbitmq_publisher.publish_message.return_value = True
@@ -467,19 +404,17 @@ class TestMatchSummaryWorker:
                 "attributes": {
                     "mapName": "Baltic_Main",
                     "gameMode": "squad-fpp",
-                    "createdAt": "2024-01-15T14:30:45Z"
+                    "createdAt": "2024-01-15T14:30:45Z",
                 },
-                "relationships": {
-                    "assets": {"data": [{"id": "asset-1"}]}
-                }
+                "relationships": {"assets": {"data": [{"id": "asset-1"}]}},
             },
             "included": [
                 {
                     "type": "asset",
                     "id": "asset-1",
-                    "attributes": {"URL": "https://telemetry.pubg.com/match.json"}
+                    "attributes": {"URL": "https://telemetry.pubg.com/match.json"},
                 }
-            ]
+            ],
         }
 
         mock_rabbitmq_publisher.publish_message.return_value = True
@@ -501,7 +436,7 @@ class TestMatchSummaryWorker:
         # Match data missing telemetry asset
         mock_pubg_client.get_match_data.return_value = {
             "data": {"id": "match-123", "attributes": {}},
-            "included": []
+            "included": [],
         }
 
         result = worker.process_message({"match_id": "match-123"})
@@ -510,24 +445,19 @@ class TestMatchSummaryWorker:
         assert "telemetry URL" in result["error"]
         assert worker.error_count == 1
 
-    def test_process_message_no_participants(
-        self, worker, mock_pubg_client, mock_database_manager
-    ):
+    def test_process_message_no_participants(self, worker, mock_pubg_client, mock_database_manager):
         """Should fail if no participants found"""
         mock_database_manager.execute_query.return_value = [{"count": 0}]
 
         mock_pubg_client.get_match_data.return_value = {
-            "data": {
-                "id": "match-123",
-                "relationships": {"assets": {"data": [{"id": "asset-1"}]}}
-            },
+            "data": {"id": "match-123", "relationships": {"assets": {"data": [{"id": "asset-1"}]}}},
             "included": [
                 {
                     "type": "asset",
                     "id": "asset-1",
-                    "attributes": {"URL": "https://telemetry.pubg.com/match.json"}
+                    "attributes": {"URL": "https://telemetry.pubg.com/match.json"},
                 }
-            ]
+            ],
         }
 
         result = worker.process_message({"match_id": "match-123"})
@@ -546,14 +476,25 @@ class TestMatchSummaryWorker:
             "data": {
                 "id": "match-123",
                 "attributes": {"mapName": "Baltic_Main", "createdAt": "2024-01-15T14:30:45Z"},
-                "relationships": {"assets": {"data": [{"id": "asset-1"}]}}
+                "relationships": {"assets": {"data": [{"id": "asset-1"}]}},
             },
             "included": [
-                {"type": "asset", "id": "asset-1", "attributes": {"URL": "https://telemetry.pubg.com/match.json"}},
-                {"type": "participant", "id": "p1", "attributes": {"stats": {"playerId": "a1", "name": "P1"}}},
-                {"type": "roster", "attributes": {"stats": {"teamId": 1, "rank": 1}, "won": "true"},
-                 "relationships": {"participants": {"data": [{"id": "p1"}]}}}
-            ]
+                {
+                    "type": "asset",
+                    "id": "asset-1",
+                    "attributes": {"URL": "https://telemetry.pubg.com/match.json"},
+                },
+                {
+                    "type": "participant",
+                    "id": "p1",
+                    "attributes": {"stats": {"playerId": "a1", "name": "P1"}},
+                },
+                {
+                    "type": "roster",
+                    "attributes": {"stats": {"teamId": 1, "rank": 1}, "won": "true"},
+                    "relationships": {"participants": {"data": [{"id": "p1"}]}},
+                },
+            ],
         }
 
         # Publish fails
@@ -565,9 +506,7 @@ class TestMatchSummaryWorker:
         assert "publish" in result["error"].lower()
         assert worker.error_count == 1
 
-    def test_process_message_exception(
-        self, worker, mock_pubg_client, mock_database_manager
-    ):
+    def test_process_message_exception(self, worker, mock_pubg_client, mock_database_manager):
         """Should handle exceptions gracefully"""
         mock_database_manager.execute_query.return_value = [{"count": 0}]
         mock_pubg_client.get_match_data.side_effect = Exception("API error")

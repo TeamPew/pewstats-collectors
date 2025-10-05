@@ -4,11 +4,8 @@ Unit tests for Telemetry Processing Worker
 
 import gzip
 import json
-import os
 import pytest
-import tempfile
-from datetime import datetime, timezone
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock
 
 from pewstats_collectors.workers.telemetry_processing_worker import (
     TelemetryProcessingWorker,
@@ -97,9 +94,9 @@ class TestTelemetryProcessingWorker:
                     "accountId": "account.abc123",
                     "name": "TestPlayer1",
                     "teamId": 1,
-                    "location": {"x": 100.5, "y": 200.5, "z": 300.5}
+                    "location": {"x": 100.5, "y": 200.5, "z": 300.5},
                 },
-                "common": {"isGame": 1.0}
+                "common": {"isGame": 1.0},
             },
             {
                 "_T": "LogParachuteLanding",
@@ -107,15 +104,11 @@ class TestTelemetryProcessingWorker:
                     "accountId": "account.xyz789",
                     "name": "TestPlayer2",
                     "teamId": 2,
-                    "location": {"x": 150.5, "y": 250.5, "z": 350.5}
+                    "location": {"x": 150.5, "y": 250.5, "z": 350.5},
                 },
-                "common": {"isGame": 1.0}
+                "common": {"isGame": 1.0},
             },
-            {
-                "_T": "LogPlayerKillV2",
-                "victim": {"name": "SomeVictim"},
-                "data": "other event"
-            }
+            {"_T": "LogPlayerKillV2", "victim": {"name": "SomeVictim"}, "data": "other event"},
         ]
 
     def test_initialization(self, worker):
@@ -145,14 +138,10 @@ class TestTelemetryProcessingWorker:
         match_data = {
             "map_name": "Erangel",
             "game_mode": "squad-fpp",
-            "match_datetime": "2024-01-15T14:30:45Z"
+            "match_datetime": "2024-01-15T14:30:45Z",
         }
 
-        landings = worker.extract_landings(
-            sample_telemetry_events,
-            "match-123",
-            match_data
-        )
+        landings = worker.extract_landings(sample_telemetry_events, "match-123", match_data)
 
         assert len(landings) == 2
 
@@ -176,9 +165,9 @@ class TestTelemetryProcessingWorker:
                 "character": {
                     "accountId": "invalid_id",  # Doesn't start with "account"
                     "name": "Invalid",
-                    "location": {"x": 1, "y": 1, "z": 1}
+                    "location": {"x": 1, "y": 1, "z": 1},
                 },
-                "common": {"isGame": 1.0}
+                "common": {"isGame": 1.0},
             }
         ]
 
@@ -193,9 +182,9 @@ class TestTelemetryProcessingWorker:
                 "character": {
                     "accountId": "account.test",
                     "name": "Test",
-                    "location": {"x": 1, "y": 1, "z": 1}
+                    "location": {"x": 1, "y": 1, "z": 1},
                 },
-                "common": {"isGame": 0.0}  # Lobby
+                "common": {"isGame": 0.0},  # Lobby
             }
         ]
 
@@ -210,19 +199,19 @@ class TestTelemetryProcessingWorker:
                 "character": {
                     "accountId": "account.player1",
                     "name": "Player1",
-                    "location": {"x": 100, "y": 100, "z": 100}
+                    "location": {"x": 100, "y": 100, "z": 100},
                 },
-                "common": {"isGame": 1.0}
+                "common": {"isGame": 1.0},
             },
             {
                 "_T": "LogParachuteLanding",
                 "character": {
                     "accountId": "account.player1",  # Same player
                     "name": "Player1",
-                    "location": {"x": 200, "y": 200, "z": 200}  # Different location
+                    "location": {"x": 200, "y": 200, "z": 200},  # Different location
                 },
-                "common": {"isGame": 1.0}
-            }
+                "common": {"isGame": 1.0},
+            },
         ]
 
         landings = worker.extract_landings(events, "match-123", {})
@@ -236,9 +225,9 @@ class TestTelemetryProcessingWorker:
                 "character": {
                     "accountId": "account.test",
                     "name": "Test",
-                    "location": {"x": 1, "y": 1, "z": 1}
+                    "location": {"x": 1, "y": 1, "z": 1},
                 },
-                "common": {"is_game": 1.0}  # Alternate field name
+                "common": {"is_game": 1.0},  # Alternate field name
             }
         ]
 
@@ -262,7 +251,7 @@ class TestTelemetryProcessingWorker:
         """Should read and parse gzipped telemetry file"""
         # Create test file
         file_path = tmp_path / "raw.json.gz"
-        with gzip.open(file_path, 'wt', encoding='utf-8') as f:
+        with gzip.open(file_path, "wt", encoding="utf-8") as f:
             json.dump(sample_telemetry_events, f)
 
         # Read it
@@ -282,7 +271,7 @@ class TestTelemetryProcessingWorker:
         """Should successfully process telemetry"""
         # Create test file
         file_path = tmp_path / "raw.json.gz"
-        with gzip.open(file_path, 'wt', encoding='utf-8') as f:
+        with gzip.open(file_path, "wt", encoding="utf-8") as f:
             json.dump(sample_telemetry_events, f)
 
         mock_database_manager.insert_landings.return_value = 2
@@ -290,12 +279,14 @@ class TestTelemetryProcessingWorker:
         mock_database_manager.update_match_status.return_value = True
 
         # Execute
-        result = worker.process_message({
-            "match_id": "match-123",
-            "file_path": str(file_path),
-            "map_name": "Erangel",
-            "game_mode": "squad-fpp",
-        })
+        result = worker.process_message(
+            {
+                "match_id": "match-123",
+                "file_path": str(file_path),
+                "map_name": "Erangel",
+                "game_mode": "squad-fpp",
+            }
+        )
 
         # Verify
         assert result["success"] is True
@@ -312,19 +303,19 @@ class TestTelemetryProcessingWorker:
             "match-123", "completed", None
         )
 
-    def test_process_message_empty_events(
-        self, worker, mock_database_manager, tmp_path
-    ):
+    def test_process_message_empty_events(self, worker, mock_database_manager, tmp_path):
         """Should fail if no events in file"""
         # Create empty file
         file_path = tmp_path / "raw.json.gz"
-        with gzip.open(file_path, 'wt', encoding='utf-8') as f:
+        with gzip.open(file_path, "wt", encoding="utf-8") as f:
             json.dump([], f)
 
-        result = worker.process_message({
-            "match_id": "match-123",
-            "file_path": str(file_path),
-        })
+        result = worker.process_message(
+            {
+                "match_id": "match-123",
+                "file_path": str(file_path),
+            }
+        )
 
         assert result["success"] is False
         assert "No events" in result["error"]
@@ -332,10 +323,12 @@ class TestTelemetryProcessingWorker:
 
     def test_process_message_file_read_error(self, worker):
         """Should handle file read errors"""
-        result = worker.process_message({
-            "match_id": "match-123",
-            "file_path": "/nonexistent/file.json.gz",
-        })
+        result = worker.process_message(
+            {
+                "match_id": "match-123",
+                "file_path": "/nonexistent/file.json.gz",
+            }
+        )
 
         assert result["success"] is False
         assert worker.error_count == 1
@@ -346,17 +339,19 @@ class TestTelemetryProcessingWorker:
         """Should handle database errors"""
         # Create test file
         file_path = tmp_path / "raw.json.gz"
-        with gzip.open(file_path, 'wt', encoding='utf-8') as f:
+        with gzip.open(file_path, "wt", encoding="utf-8") as f:
             json.dump(sample_telemetry_events, f)
 
         # Database insert fails
         mock_database_manager.insert_landings.side_effect = Exception("DB error")
 
-        result = worker.process_message({
-            "match_id": "match-123",
-            "file_path": str(file_path),
-            "map_name": "Erangel",
-        })
+        result = worker.process_message(
+            {
+                "match_id": "match-123",
+                "file_path": str(file_path),
+                "map_name": "Erangel",
+            }
+        )
 
         assert result["success"] is False
         assert "DB error" in result["error"]

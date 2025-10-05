@@ -5,9 +5,7 @@ Unit tests for Telemetry Download Worker
 import gzip
 import os
 import pytest
-import tempfile
-from datetime import datetime, timezone
-from unittest.mock import Mock, MagicMock, patch, call, mock_open
+from unittest.mock import Mock, patch
 
 from pewstats_collectors.workers.telemetry_download_worker import (
     TelemetryDownloadWorker,
@@ -21,7 +19,7 @@ class TestHelperFunctions:
     def test_is_gzipped_true(self, tmp_path):
         """Should detect gzipped files"""
         gz_file = tmp_path / "test.json.gz"
-        with gzip.open(gz_file, 'wb') as f:
+        with gzip.open(gz_file, "wb") as f:
             f.write(b'{"test": "data"}')
 
         assert is_gzipped(str(gz_file)) is True
@@ -91,7 +89,7 @@ class TestTelemetryDownloadWorker:
         os.makedirs(match_dir, exist_ok=True)
 
         file_path = os.path.join(match_dir, "raw.json.gz")
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             f.write("test data")
 
         assert worker.telemetry_exists(match_id) is True
@@ -125,11 +123,9 @@ class TestTelemetryDownloadWorker:
         stats = worker.get_stats()
         assert stats["success_rate"] == 0
 
-    @patch('requests.get')
-    @patch('tempfile.mkstemp')
-    def test_download_telemetry_success_not_gzipped(
-        self, mock_mkstemp, mock_get, worker, tmp_path
-    ):
+    @patch("requests.get")
+    @patch("tempfile.mkstemp")
+    def test_download_telemetry_success_not_gzipped(self, mock_mkstemp, mock_get, worker, tmp_path):
         """Should download and compress non-gzipped file"""
         # Setup mock temp file
         tmp_file = tmp_path / "temp.json"
@@ -141,10 +137,7 @@ class TestTelemetryDownloadWorker:
         mock_get.return_value = mock_response
 
         # Execute
-        result = worker.download_telemetry(
-            "https://telemetry.pubg.com/match.json",
-            "match-123"
-        )
+        result = worker.download_telemetry("https://telemetry.pubg.com/match.json", "match-123")
 
         # Verify
         assert "file_path" in result
@@ -155,73 +148,62 @@ class TestTelemetryDownloadWorker:
         # Verify it's gzipped
         assert is_gzipped(result["file_path"])
 
-    @patch('requests.get')
-    @patch('tempfile.mkstemp')
-    def test_download_telemetry_already_gzipped(
-        self, mock_mkstemp, mock_get, worker, tmp_path
-    ):
+    @patch("requests.get")
+    @patch("tempfile.mkstemp")
+    def test_download_telemetry_already_gzipped(self, mock_mkstemp, mock_get, worker, tmp_path):
         """Should handle already-gzipped files"""
         # Create a real gzipped temp file
         tmp_file = tmp_path / "temp.json.gz"
-        with gzip.open(tmp_file, 'wb') as f:
+        with gzip.open(tmp_file, "wb") as f:
             f.write(b'{"test": "data"}')
 
         mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
 
         # Setup mock response (returns gzipped data)
         mock_response = Mock()
-        with open(tmp_file, 'rb') as f:
+        with open(tmp_file, "rb") as f:
             gzipped_data = f.read()
         mock_response.iter_content.return_value = [gzipped_data]
         mock_get.return_value = mock_response
 
         # Execute
-        result = worker.download_telemetry(
-            "https://telemetry.pubg.com/match.json.gz",
-            "match-123"
-        )
+        result = worker.download_telemetry("https://telemetry.pubg.com/match.json.gz", "match-123")
 
         # Verify
         assert os.path.exists(result["file_path"])
         assert is_gzipped(result["file_path"])
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_download_telemetry_retry_on_failure(self, mock_get, worker):
         """Should retry on download failure"""
         # First two attempts fail, third succeeds
         mock_get.side_effect = [
             Exception("Connection timeout"),
             Exception("Connection timeout"),
-            Mock(iter_content=lambda chunk_size: [b'{"test": "data"}'])
+            Mock(iter_content=lambda chunk_size: [b'{"test": "data"}']),
         ]
 
         # Execute
-        result = worker.download_telemetry(
-            "https://telemetry.pubg.com/match.json",
-            "match-123"
-        )
+        result = worker.download_telemetry("https://telemetry.pubg.com/match.json", "match-123")
 
         # Verify - should have tried 3 times
         assert mock_get.call_count == 3
         assert os.path.exists(result["file_path"])
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_download_telemetry_max_retries_exceeded(self, mock_get, worker):
         """Should raise exception after max retries"""
         mock_get.side_effect = Exception("Connection timeout")
 
         # Execute - should raise after 3 attempts
         with pytest.raises(Exception) as exc_info:
-            worker.download_telemetry(
-                "https://telemetry.pubg.com/match.json",
-                "match-123"
-            )
+            worker.download_telemetry("https://telemetry.pubg.com/match.json", "match-123")
 
         assert "Failed to download telemetry after 3 attempts" in str(exc_info.value)
         assert mock_get.call_count == 3
 
-    @patch('requests.get')
-    @patch('tempfile.mkstemp')
+    @patch("requests.get")
+    @patch("tempfile.mkstemp")
     def test_download_telemetry_empty_file(self, mock_mkstemp, mock_get, worker, tmp_path):
         """Should fail if downloaded file is empty"""
         tmp_file = tmp_path / "temp.json"
@@ -236,10 +218,7 @@ class TestTelemetryDownloadWorker:
 
         # Execute - should fail
         with pytest.raises(Exception) as exc_info:
-            worker.download_telemetry(
-                "https://telemetry.pubg.com/match.json",
-                "match-123"
-            )
+            worker.download_telemetry("https://telemetry.pubg.com/match.json", "match-123")
 
         # Just check that it failed after retries
         assert "3 attempts" in str(exc_info.value)
@@ -251,18 +230,20 @@ class TestTelemetryDownloadWorker:
         match_dir = os.path.join(worker.data_path, f"matchID={match_id}")
         os.makedirs(match_dir, exist_ok=True)
         file_path = os.path.join(match_dir, "raw.json.gz")
-        with gzip.open(file_path, 'wb') as f:
+        with gzip.open(file_path, "wb") as f:
             f.write(b'{"test": "data"}')
 
         mock_rabbitmq_publisher.publish_message.return_value = True
 
         # Execute
-        result = worker.process_message({
-            "match_id": match_id,
-            "telemetry_url": "https://telemetry.pubg.com/match.json",
-            "map_name": "Erangel",
-            "game_mode": "squad-fpp"
-        })
+        result = worker.process_message(
+            {
+                "match_id": match_id,
+                "telemetry_url": "https://telemetry.pubg.com/match.json",
+                "map_name": "Erangel",
+                "game_mode": "squad-fpp",
+            }
+        )
 
         # Verify
         assert result["success"] is True
@@ -271,8 +252,8 @@ class TestTelemetryDownloadWorker:
         # Should still publish to processing queue
         mock_rabbitmq_publisher.publish_message.assert_called_once()
 
-    @patch('requests.get')
-    @patch('tempfile.mkstemp')
+    @patch("requests.get")
+    @patch("tempfile.mkstemp")
     def test_process_message_success(
         self, mock_mkstemp, mock_get, worker, mock_rabbitmq_publisher, tmp_path
     ):
@@ -289,12 +270,14 @@ class TestTelemetryDownloadWorker:
         mock_rabbitmq_publisher.publish_message.return_value = True
 
         # Execute
-        result = worker.process_message({
-            "match_id": "match-123",
-            "telemetry_url": "https://telemetry.pubg.com/match.json",
-            "map_name": "Erangel",
-            "game_mode": "squad-fpp"
-        })
+        result = worker.process_message(
+            {
+                "match_id": "match-123",
+                "telemetry_url": "https://telemetry.pubg.com/match.json",
+                "map_name": "Erangel",
+                "game_mode": "squad-fpp",
+            }
+        )
 
         # Verify
         assert result["success"] is True
@@ -312,13 +295,18 @@ class TestTelemetryDownloadWorker:
         message = call_args[0][2]
         assert message["match_id"] == "match-123"
 
-    @patch('requests.get')
-    def test_process_message_publish_failure(self, mock_get, worker, mock_rabbitmq_publisher, tmp_path):
+    @patch("requests.get")
+    def test_process_message_publish_failure(
+        self, mock_get, worker, mock_rabbitmq_publisher, tmp_path
+    ):
         """Should fail if publishing fails"""
         # Setup successful download
-        with patch('tempfile.mkstemp') as mock_mkstemp:
+        with patch("tempfile.mkstemp") as mock_mkstemp:
             tmp_file = tmp_path / "temp.json"
-            mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_CREAT | os.O_RDWR), str(tmp_file))
+            mock_mkstemp.return_value = (
+                os.open(str(tmp_file), os.O_CREAT | os.O_RDWR),
+                str(tmp_file),
+            )
 
             mock_response = Mock()
             mock_response.iter_content.return_value = [b'{"test": "data"}']
@@ -328,25 +316,23 @@ class TestTelemetryDownloadWorker:
             mock_rabbitmq_publisher.publish_message.return_value = False
 
             # Execute
-            result = worker.process_message({
-                "match_id": "match-123",
-                "telemetry_url": "https://telemetry.pubg.com/match.json"
-            })
+            result = worker.process_message(
+                {"match_id": "match-123", "telemetry_url": "https://telemetry.pubg.com/match.json"}
+            )
 
             # Verify
             assert result["success"] is False
             assert "publish" in result["error"].lower()
             assert worker.error_count == 1
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_process_message_download_exception(self, mock_get, worker):
         """Should handle download exceptions"""
         mock_get.side_effect = Exception("Network error")
 
-        result = worker.process_message({
-            "match_id": "match-123",
-            "telemetry_url": "https://telemetry.pubg.com/match.json"
-        })
+        result = worker.process_message(
+            {"match_id": "match-123", "telemetry_url": "https://telemetry.pubg.com/match.json"}
+        )
 
         assert result["success"] is False
         assert "Network error" in result["error"]
@@ -359,14 +345,11 @@ class TestTelemetryDownloadWorker:
         original_data = {
             "map_name": "Erangel",
             "game_mode": "squad-fpp",
-            "match_datetime": "2024-01-15T14:30:45Z"
+            "match_datetime": "2024-01-15T14:30:45Z",
         }
 
         success = worker._publish_processing_message(
-            "match-123",
-            original_data,
-            "/path/to/file.json.gz",
-            5.5
+            "match-123", original_data, "/path/to/file.json.gz", 5.5
         )
 
         assert success is True

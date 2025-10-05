@@ -6,8 +6,7 @@ Ensures R business logic parity.
 
 import json
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch
 
 from pewstats_collectors.core.rabbitmq_publisher import RabbitMQPublisher, RabbitMQError
 
@@ -28,13 +27,18 @@ def publisher(mock_connection):
     """Create RabbitMQPublisher with mocked connection."""
     conn, channel = mock_connection
 
-    with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection', return_value=conn):
-        with patch.dict('os.environ', {
-            'RABBITMQ_HOST': 'localhost',
-            'RABBITMQ_USER': 'test_user',
-            'RABBITMQ_PASSWORD': 'test_pass',
-            'ENVIRONMENT': 'dev'
-        }):
+    with patch(
+        "pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection", return_value=conn
+    ):
+        with patch.dict(
+            "os.environ",
+            {
+                "RABBITMQ_HOST": "localhost",
+                "RABBITMQ_USER": "test_user",
+                "RABBITMQ_PASSWORD": "test_pass",
+                "ENVIRONMENT": "dev",
+            },
+        ):
             pub = RabbitMQPublisher()
             yield pub, channel
 
@@ -43,104 +47,123 @@ def publisher(mock_connection):
 # Initialization Tests
 # ============================================================================
 
+
 class TestRabbitMQPublisherInitialization:
     """Test publisher initialization."""
 
     def test_initialization_from_env_variables(self):
         """Test initialization using environment variables."""
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection'):
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'rabbitmq.example.com',
-                'RABBITMQ_PORT': '5673',
-                'RABBITMQ_USER': 'pubg_service',
-                'RABBITMQ_PASSWORD': 'secret123',
-                'RABBITMQ_VHOST': '/pubg',
-                'ENVIRONMENT': 'prod'
-            }):
+        with patch("pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection"):
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "rabbitmq.example.com",
+                    "RABBITMQ_PORT": "5673",
+                    "RABBITMQ_USER": "pubg_service",
+                    "RABBITMQ_PASSWORD": "secret123",
+                    "RABBITMQ_VHOST": "/pubg",
+                    "ENVIRONMENT": "prod",
+                },
+            ):
                 pub = RabbitMQPublisher()
 
-                assert pub.host == 'rabbitmq.example.com'
+                assert pub.host == "rabbitmq.example.com"
                 assert pub.port == 5673
-                assert pub.username == 'pubg_service'
-                assert pub.password == 'secret123'
-                assert pub.vhost == '/pubg'
-                assert pub.environment == 'prod'
+                assert pub.username == "pubg_service"
+                assert pub.password == "secret123"
+                assert pub.vhost == "/pubg"
+                assert pub.environment == "prod"
 
     def test_initialization_with_explicit_parameters(self):
         """Test initialization with explicit parameters."""
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection'):
-            with patch.dict('os.environ', {}, clear=True):
+        with patch("pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection"):
+            with patch.dict("os.environ", {}, clear=True):
                 pub = RabbitMQPublisher(
-                    host='custom.host',
+                    host="custom.host",
                     port=5555,
-                    username='custom_user',
-                    password='custom_pass',
-                    vhost='/custom',
-                    environment='staging'
+                    username="custom_user",
+                    password="custom_pass",
+                    vhost="/custom",
+                    environment="staging",
                 )
 
-                assert pub.host == 'custom.host'
+                assert pub.host == "custom.host"
                 assert pub.port == 5555
-                assert pub.username == 'custom_user'
-                assert pub.password == 'custom_pass'
-                assert pub.vhost == '/custom'
-                assert pub.environment == 'staging'
+                assert pub.username == "custom_user"
+                assert pub.password == "custom_pass"
+                assert pub.vhost == "/custom"
+                assert pub.environment == "staging"
 
     def test_initialization_missing_host(self):
         """Test initialization fails with missing host."""
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             with pytest.raises(RabbitMQError, match="RabbitMQ host is not set"):
                 RabbitMQPublisher()
 
     def test_initialization_missing_credentials(self):
         """Test initialization fails with missing credentials."""
-        with patch.dict('os.environ', {'RABBITMQ_HOST': 'localhost'}, clear=True):
+        with patch.dict("os.environ", {"RABBITMQ_HOST": "localhost"}, clear=True):
             with pytest.raises(RabbitMQError, match="username is not set"):
                 RabbitMQPublisher()
 
     def test_container_environment_detection(self):
         """Test container environment detection (R compatibility)."""
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection'):
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'host_value',
-                'RABBITMQ_CONTAINER_HOST': 'container_value',
-                'RABBITMQ_USER': 'user',
-                'RABBITMQ_PASSWORD': 'pass'
-            }):
+        with patch("pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection"):
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "host_value",
+                    "RABBITMQ_CONTAINER_HOST": "container_value",
+                    "RABBITMQ_USER": "user",
+                    "RABBITMQ_PASSWORD": "pass",
+                },
+            ):
                 # Simulate container environment
-                with patch('pewstats_collectors.core.rabbitmq_publisher.Path.exists', return_value=True):
+                with patch(
+                    "pewstats_collectors.core.rabbitmq_publisher.Path.exists", return_value=True
+                ):
                     pub = RabbitMQPublisher()
-                    assert pub.host == 'container_value'
+                    assert pub.host == "container_value"
 
     def test_host_environment_detection(self):
         """Test host (non-container) environment detection."""
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection'):
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'host_value',
-                'RABBITMQ_CONTAINER_HOST': 'container_value',
-                'RABBITMQ_USER': 'user',
-                'RABBITMQ_PASSWORD': 'pass'
-            }):
+        with patch("pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection"):
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "host_value",
+                    "RABBITMQ_CONTAINER_HOST": "container_value",
+                    "RABBITMQ_USER": "user",
+                    "RABBITMQ_PASSWORD": "pass",
+                },
+            ):
                 # Simulate host environment (not container)
-                with patch('pewstats_collectors.core.rabbitmq_publisher.Path.exists', return_value=False):
+                with patch(
+                    "pewstats_collectors.core.rabbitmq_publisher.Path.exists", return_value=False
+                ):
                     pub = RabbitMQPublisher()
-                    assert pub.host == 'host_value'
+                    assert pub.host == "host_value"
 
     def test_default_environment_is_prod(self):
         """Test default environment is 'prod' (R compatibility)."""
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection'):
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'localhost',
-                'RABBITMQ_USER': 'user',
-                'RABBITMQ_PASSWORD': 'pass'
-            }, clear=True):
+        with patch("pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection"):
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "localhost",
+                    "RABBITMQ_USER": "user",
+                    "RABBITMQ_PASSWORD": "pass",
+                },
+                clear=True,
+            ):
                 pub = RabbitMQPublisher()
-                assert pub.environment == 'prod'
+                assert pub.environment == "prod"
 
 
 # ============================================================================
 # Queue/Exchange Naming Tests
 # ============================================================================
+
 
 class TestNamingConventions:
     """Test queue and exchange naming (R compatibility)."""
@@ -156,13 +179,16 @@ class TestNamingConventions:
 
     def test_build_queue_name_prod_environment(self):
         """Test queue names in prod environment."""
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection'):
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'localhost',
-                'RABBITMQ_USER': 'user',
-                'RABBITMQ_PASSWORD': 'pass',
-                'ENVIRONMENT': 'prod'
-            }):
+        with patch("pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection"):
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "localhost",
+                    "RABBITMQ_USER": "user",
+                    "RABBITMQ_PASSWORD": "pass",
+                    "ENVIRONMENT": "prod",
+                },
+            ):
                 pub = RabbitMQPublisher()
                 assert pub._build_queue_name("match", "discovered") == "match.discovered.prod"
 
@@ -176,13 +202,16 @@ class TestNamingConventions:
 
     def test_build_exchange_name_prod_environment(self):
         """Test exchange names in prod environment."""
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection'):
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'localhost',
-                'RABBITMQ_USER': 'user',
-                'RABBITMQ_PASSWORD': 'pass',
-                'ENVIRONMENT': 'prod'
-            }):
+        with patch("pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection"):
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "localhost",
+                    "RABBITMQ_USER": "user",
+                    "RABBITMQ_PASSWORD": "pass",
+                    "ENVIRONMENT": "prod",
+                },
+            ):
                 pub = RabbitMQPublisher()
                 assert pub._build_exchange_name("match") == "match.exchange.prod"
 
@@ -191,6 +220,7 @@ class TestNamingConventions:
 # Message Publishing Tests
 # ============================================================================
 
+
 class TestMessagePublishing:
     """Test message publishing functionality."""
 
@@ -198,10 +228,7 @@ class TestMessagePublishing:
         """Test successful message publishing."""
         pub, channel = publisher
 
-        message = {
-            "match_id": "abc123",
-            "timestamp": "2024-01-15 10:30:00"
-        }
+        message = {"match_id": "abc123", "timestamp": "2024-01-15 10:30:00"}
 
         result = pub.publish_message("match", "discovered", message)
 
@@ -219,7 +246,7 @@ class TestMessagePublishing:
 
         # Get the actual published payload
         call_args = channel.basic_publish.call_args
-        published_body = call_args[1]['body']
+        published_body = call_args[1]["body"]
         published_data = json.loads(published_body)
 
         # Verify metadata was added (R compatibility)
@@ -234,7 +261,7 @@ class TestMessagePublishing:
         pub.publish_message("telemetry", "processing", {"test": "data"})
 
         call_args = channel.basic_publish.call_args
-        routing_key = call_args[1]['routing_key']
+        routing_key = call_args[1]["routing_key"]
 
         assert routing_key == "telemetry.processing.dev"
 
@@ -245,7 +272,7 @@ class TestMessagePublishing:
         pub.publish_message("match", "discovered", {"test": "data"})
 
         call_args = channel.basic_publish.call_args
-        exchange = call_args[1]['exchange']
+        exchange = call_args[1]["exchange"]
 
         # R uses default exchange (empty string)
         assert exchange == ""
@@ -257,7 +284,7 @@ class TestMessagePublishing:
         pub.publish_message("match", "discovered", {"test": "data"})
 
         call_args = channel.basic_publish.call_args
-        properties = call_args[1]['properties']
+        properties = call_args[1]["properties"]
 
         # delivery_mode=2 means persistent
         assert properties.delivery_mode == 2
@@ -269,7 +296,7 @@ class TestMessagePublishing:
         pub.publish_message("match", "discovered", {"test": "data"})
 
         call_args = channel.basic_publish.call_args
-        properties = call_args[1]['properties']
+        properties = call_args[1]["properties"]
 
         assert properties.content_type == "application/json"
 
@@ -281,7 +308,7 @@ class TestMessagePublishing:
         pub.publish_message("match", "discovered", {"test": "data"}, properties=props)
 
         call_args = channel.basic_publish.call_args
-        properties = call_args[1]['properties']
+        properties = call_args[1]["properties"]
 
         assert properties.content_type == "text/plain"
 
@@ -309,7 +336,7 @@ class TestMessagePublishing:
             ("match", "failed"),
             ("telemetry", "discovered"),
             ("stats", "processing"),
-            ("dlq", "matches")
+            ("dlq", "matches"),
         ]
 
         for type_val, step_val in test_cases:
@@ -321,17 +348,23 @@ class TestMessagePublishing:
 # Connection Management Tests
 # ============================================================================
 
+
 class TestConnectionManagement:
     """Test connection lifecycle management."""
 
     def test_lazy_connection_initialization(self):
         """Test that connection is not created until first use."""
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection') as mock_conn_class:
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'localhost',
-                'RABBITMQ_USER': 'user',
-                'RABBITMQ_PASSWORD': 'pass'
-            }):
+        with patch(
+            "pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection"
+        ) as mock_conn_class:
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "localhost",
+                    "RABBITMQ_USER": "user",
+                    "RABBITMQ_PASSWORD": "pass",
+                },
+            ):
                 pub = RabbitMQPublisher()
 
                 # Connection should not be created yet
@@ -371,12 +404,18 @@ class TestConnectionManagement:
         mock_channel.is_closed = False
         mock_conn.channel.return_value = mock_channel
 
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection', return_value=mock_conn):
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'localhost',
-                'RABBITMQ_USER': 'user',
-                'RABBITMQ_PASSWORD': 'pass'
-            }):
+        with patch(
+            "pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection",
+            return_value=mock_conn,
+        ):
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "localhost",
+                    "RABBITMQ_USER": "user",
+                    "RABBITMQ_PASSWORD": "pass",
+                },
+            ):
                 with RabbitMQPublisher() as pub:
                     pub.publish_message("match", "discovered", {"test": "data"})
 
@@ -411,6 +450,7 @@ class TestConnectionManagement:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestErrorHandling:
     """Test error handling and logging."""
 
@@ -419,12 +459,18 @@ class TestErrorHandling:
         # Use AMQPConnectionError instead of generic Exception
         from pika.exceptions import AMQPConnectionError
 
-        with patch('pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection', side_effect=AMQPConnectionError("Connection refused")):
-            with patch.dict('os.environ', {
-                'RABBITMQ_HOST': 'localhost',
-                'RABBITMQ_USER': 'user',
-                'RABBITMQ_PASSWORD': 'pass'
-            }):
+        with patch(
+            "pewstats_collectors.core.rabbitmq_publisher.pika.BlockingConnection",
+            side_effect=AMQPConnectionError("Connection refused"),
+        ):
+            with patch.dict(
+                "os.environ",
+                {
+                    "RABBITMQ_HOST": "localhost",
+                    "RABBITMQ_USER": "user",
+                    "RABBITMQ_PASSWORD": "pass",
+                },
+            ):
                 pub = RabbitMQPublisher()
 
                 with pytest.raises(RabbitMQError, match="Failed to connect to RabbitMQ"):
@@ -436,7 +482,7 @@ class TestErrorHandling:
 
         channel.basic_publish.side_effect = Exception("Channel closed")
 
-        with patch('pewstats_collectors.core.rabbitmq_publisher.logger') as mock_logger:
+        with patch("pewstats_collectors.core.rabbitmq_publisher.logger") as mock_logger:
             result = pub.publish_message("match", "discovered", {"test": "data"})
 
             assert result is False

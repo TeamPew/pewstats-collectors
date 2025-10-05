@@ -22,6 +22,7 @@ wheels/
 
 # Virtual Environment
 venv/
+.venv/
 env/
 ENV/
 
@@ -35,6 +36,7 @@ ENV/
 # Environment
 .env
 .env.local
+!.env.example
 
 # Logs
 *.log

@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # API Key from environment (skip tests if not available)
 PUBG_API_KEY = os.getenv(
     "PUBG_API_KEY",
-    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJmZTUwMGY4MC00ZDA0LTAxM2UtMDI3ZC0wMjAwYjdjMWRhMzYiLCJpc3MiOiJnYW1lbG9ja2VyIiwiaWF0IjoxNzUzNjEzMjM5LCJwdWIiOiJibHVlaG9sZSIsInRpdGxlIjoicHViZyIsImFwcCI6ImRldi1lbnZpcm9ubWVuIn0.A_Etq0KXdSJ9Qo1owyv2FyZ6ete7fleiS2RHFc5Moss"
+    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJmZTUwMGY4MC00ZDA0LTAxM2UtMDI3ZC0wMjAwYjdjMWRhMzYiLCJpc3MiOiJnYW1lbG9ja2VyIiwiaWF0IjoxNzUzNjEzMjM5LCJwdWIiOiJibHVlaG9sZSIsInRpdGxlIjoicHViZyIsImFwcCI6ImRldi1lbnZpcm9ubWVuIn0.A_Etq0KXdSJ9Qo1owyv2FyZ6ete7fleiS2RHFc5Moss",
 )
 TEST_PLAYER_NAME = "XacatecaS"
 
@@ -43,6 +43,7 @@ def api_key_manager():
 @pytest.fixture
 def pubg_client(api_key_manager):
     """Create PUBGClient with test configuration."""
+
     # Mock function that returns empty set (no existing matches)
     def get_existing_match_ids():
         return set()
@@ -50,7 +51,7 @@ def pubg_client(api_key_manager):
     return PUBGClient(
         api_key_manager=api_key_manager,
         get_existing_match_ids=get_existing_match_ids,
-        platform="steam"
+        platform="steam",
     )
 
 
@@ -128,9 +129,7 @@ class TestMatchDiscoveryIntegration:
 
         # First, get all matches
         client1 = PUBGClient(
-            api_key_manager=api_key_manager,
-            get_existing_match_ids=lambda: set(),
-            platform="steam"
+            api_key_manager=api_key_manager, get_existing_match_ids=lambda: set(), platform="steam"
         )
         all_matches = client1.get_new_matches([TEST_PLAYER_NAME])
 
@@ -142,7 +141,7 @@ class TestMatchDiscoveryIntegration:
             client2 = PUBGClient(
                 api_key_manager=api_key_manager,
                 get_existing_match_ids=lambda: existing_matches,
-                platform="steam"
+                platform="steam",
             )
 
             # Should not include the existing match
@@ -249,13 +248,15 @@ class TestMetadataExtractionIntegration:
         if metadata["telemetry_url"]:
             assert metadata["telemetry_url"].startswith("https://")
 
-        logger.info(f"Metadata extracted successfully:")
+        logger.info("Metadata extracted successfully:")
         logger.info(f"  Match ID: {metadata['match_id']}")
         logger.info(f"  Map: {metadata['map_name']}")
         logger.info(f"  Mode: {metadata['game_mode']}")
         logger.info(f"  Type: {metadata['game_type']}")
         logger.info(f"  DateTime: {metadata['match_datetime']}")
-        logger.info(f"  Telemetry URL: {metadata['telemetry_url'][:50] if metadata['telemetry_url'] else 'None'}...")
+        logger.info(
+            f"  Telemetry URL: {metadata['telemetry_url'][:50] if metadata['telemetry_url'] else 'None'}..."
+        )
 
     def test_map_name_translation(self, pubg_client):
         """Test that map names are translated correctly."""
@@ -271,11 +272,6 @@ class TestMetadataExtractionIntegration:
 
         # Map name should be translated (not internal name like "Baltic_Main")
         map_name = metadata["map_name"]
-        internal_names = [
-            "Baltic_Main", "Chimera_Main", "Desert_Main", "DihorOtok_Main",
-            "Erangel_Main", "Heaven_Main", "Kiki_Main", "Range_Main",
-            "Savage_Main", "Summerland_Main", "Tiger_Main", "Neon_Main"
-        ]
 
         # Should be translated to friendly name (or unknown map)
         # Most maps should be translated
@@ -311,7 +307,7 @@ class TestRateLimitingIntegration:
 
         for i in range(3):  # Reduced to 3 requests to stay under 10 RPM
             pubg_client.get_player_info([TEST_PLAYER_NAME])
-            logger.info(f"Request {i+1} completed")
+            logger.info(f"Request {i + 1} completed")
 
         elapsed = time.time() - start_time
 

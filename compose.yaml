@@ -1,0 +1,191 @@
+services:
+  # Match Discovery Service - Discovers new matches for tracked players
+  match-discovery:
+    image: ghcr.io/teampew/pewstats-collectors:production
+    command: ["python3", "-m", "pewstats_collectors.services.match_discovery"]
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # PUBG API configuration
+      - PUBG_API_KEYS=${PUBG_API_KEYS}
+      - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+      - messaging-network
+
+  # Match Summary Worker - Processes match details and extracts participant data
+  match-summary-worker:
+    image: ghcr.io/teampew/pewstats-collectors:production
+    command: ["python3", "-m", "pewstats_collectors.workers.match_summary_worker"]
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # PUBG API configuration
+      - PUBG_API_KEYS=${PUBG_API_KEYS}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=match-summary-worker-1
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+      - messaging-network
+
+  # Telemetry Download Worker - Downloads telemetry JSON files
+  telemetry-download-worker:
+    image: ghcr.io/teampew/pewstats-collectors:production
+    command: ["python3", "-m", "pewstats_collectors.workers.telemetry_download_worker"]
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # Storage configuration
+      - TELEMETRY_STORAGE_PATH=/opt/pewstats-platform/data/telemetry
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=telemetry-download-worker-1
+    volumes:
+      - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+      - messaging-network
+
+  # Telemetry Processing Worker - Processes telemetry events and extracts data
+  telemetry-processing-worker:
+    image: ghcr.io/teampew/pewstats-collectors:production
+    command: ["python3", "-m", "pewstats_collectors.workers.telemetry_processing_worker"]
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # Storage configuration
+      - TELEMETRY_STORAGE_PATH=/opt/pewstats-platform/data/telemetry
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=telemetry-processing-worker-1
+    volumes:
+      - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry:ro
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+      - messaging-network
+
+networks:
+  pewstats-network:
+    external: true
+  messaging-network:
+    external: true
+    name: pewstats-messages-queue_pewstats-messaging

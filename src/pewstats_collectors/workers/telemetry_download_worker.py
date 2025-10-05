@@ -86,9 +86,7 @@ class TelemetryDownloadWorker:
             return {"success": False, "error": error_msg}
 
         self.logger.info(f"[{self.worker_id}] Processing telemetry download for match: {match_id}")
-        self.logger.debug(
-            f"[{self.worker_id}] Telemetry URL: {telemetry_url[:80]}..."
-        )
+        self.logger.debug(f"[{self.worker_id}] Telemetry URL: {telemetry_url[:80]}...")
 
         try:
             # Check if telemetry already downloaded (idempotency)
@@ -100,7 +98,7 @@ class TelemetryDownloadWorker:
 
                 # Get file info for message
                 file_path = self._get_file_path(match_id)
-                file_size_mb = os.path.getsize(file_path) / (1024 ** 2)
+                file_size_mb = os.path.getsize(file_path) / (1024**2)
 
                 # Still publish to processing queue
                 publish_success = self._publish_processing_message(
@@ -149,9 +147,7 @@ class TelemetryDownloadWorker:
 
         except Exception as e:
             error_msg = f"Telemetry download failed: {str(e)}"
-            self.logger.error(
-                f"[{self.worker_id}] Match {match_id}: {error_msg}", exc_info=True
-            )
+            self.logger.error(f"[{self.worker_id}] Match {match_id}: {error_msg}", exc_info=True)
             self.error_count += 1
             return {"success": False, "error": str(e)}
 
@@ -199,7 +195,7 @@ class TelemetryDownloadWorker:
                 response.raise_for_status()
 
                 # Write to temp file
-                with open(tmp_path, 'wb') as f:
+                with open(tmp_path, "wb") as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
@@ -214,27 +210,23 @@ class TelemetryDownloadWorker:
                 )
 
                 # Handle compression
-                if telemetry_url.endswith('.gz') or is_gzipped(tmp_path):
+                if telemetry_url.endswith(".gz") or is_gzipped(tmp_path):
                     # Already gzipped, just move
                     shutil.move(tmp_path, final_path)
-                    self.logger.debug(
-                        f"[{self.worker_id}] Match {match_id}: File already gzipped"
-                    )
+                    self.logger.debug(f"[{self.worker_id}] Match {match_id}: File already gzipped")
                 else:
                     # Compress it
-                    with open(tmp_path, 'rb') as f_in:
-                        with gzip.open(final_path, 'wb') as f_out:
+                    with open(tmp_path, "rb") as f_in:
+                        with gzip.open(final_path, "wb") as f_out:
                             shutil.copyfileobj(f_in, f_out)
                     os.remove(tmp_path)
-                    self.logger.debug(
-                        f"[{self.worker_id}] Match {match_id}: Compressed file"
-                    )
+                    self.logger.debug(f"[{self.worker_id}] Match {match_id}: Compressed file")
 
                 # Verify final file
                 if not os.path.exists(final_path):
                     raise ValueError("Final file not created")
 
-                final_size_mb = os.path.getsize(final_path) / (1024 ** 2)
+                final_size_mb = os.path.getsize(final_path) / (1024**2)
 
                 return {
                     "file_path": final_path,
@@ -246,16 +238,18 @@ class TelemetryDownloadWorker:
                 if tmp_path and os.path.exists(tmp_path):
                     try:
                         os.remove(tmp_path)
-                    except:
+                    except OSError:
                         pass
 
                 if attempt == max_attempts:
-                    error_msg = f"Failed to download telemetry after {max_attempts} attempts: {str(e)}"
+                    error_msg = (
+                        f"Failed to download telemetry after {max_attempts} attempts: {str(e)}"
+                    )
                     self.logger.error(f"[{self.worker_id}] Match {match_id}: {error_msg}")
                     raise Exception(error_msg)
 
                 # Exponential backoff
-                wait_time = 2 ** attempt
+                wait_time = 2**attempt
                 self.logger.warning(
                     f"[{self.worker_id}] Match {match_id}: Download attempt {attempt} failed, "
                     f"retrying in {wait_time}s: {str(e)}"
@@ -279,9 +273,7 @@ class TelemetryDownloadWorker:
         exists = os.path.exists(file_path)
 
         if exists:
-            self.logger.debug(
-                f"[{self.worker_id}] Telemetry file exists for match {match_id}"
-            )
+            self.logger.debug(f"[{self.worker_id}] Telemetry file exists for match {match_id}")
 
         return exists
 
@@ -307,11 +299,7 @@ class TelemetryDownloadWorker:
 
     def _get_file_path(self, match_id: str) -> str:
         """Get file path for match telemetry"""
-        return os.path.join(
-            self.data_path,
-            f"matchID={match_id}",
-            "raw.json.gz"
-        )
+        return os.path.join(self.data_path, f"matchID={match_id}", "raw.json.gz")
 
     def _publish_processing_message(
         self,
@@ -371,8 +359,8 @@ def is_gzipped(file_path: str) -> bool:
         True if file is gzipped
     """
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             magic = f.read(2)
-        return magic == b'\x1f\x8b'
-    except:
+        return magic == b"\x1f\x8b"
+    except (IOError, OSError):
         return False

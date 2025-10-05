@@ -7,7 +7,7 @@ extracts participant statistics, stores them in the database, and forwards to te
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..core.database_manager import DatabaseManager
 from ..core.pubg_client import PUBGClient
@@ -318,9 +318,7 @@ class MatchSummaryWorker:
             }
 
             # Map each participant in this roster to team info
-            participants = (
-                roster.get("relationships", {}).get("participants", {}).get("data", [])
-            )
+            participants = roster.get("relationships", {}).get("participants", {}).get("data", [])
             for participant_ref in participants:
                 participant_id = participant_ref.get("id")
                 if participant_id:

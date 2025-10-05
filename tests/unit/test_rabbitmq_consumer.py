@@ -6,7 +6,7 @@ Ensures R BaseWorker parity.
 
 import json
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch
 
 from pewstats_collectors.core.rabbitmq_consumer import RabbitMQConsumer, RabbitMQConsumerError
 
@@ -27,12 +27,11 @@ def consumer(mock_connection):
     """Create RabbitMQConsumer with mocked connection."""
     conn, channel = mock_connection
 
-    with patch('pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection', return_value=conn):
+    with patch(
+        "pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection", return_value=conn
+    ):
         consumer = RabbitMQConsumer(
-            host='localhost',
-            username='test',
-            password='pass',
-            environment='dev'
+            host="localhost", username="test", password="pass", environment="dev"
         )
         yield consumer, channel
 
@@ -41,46 +40,44 @@ def consumer(mock_connection):
 # Initialization Tests
 # ============================================================================
 
+
 class TestRabbitMQConsumerInitialization:
     """Test consumer initialization."""
 
     def test_initialization_with_defaults(self):
         """Test initialization with default parameters."""
-        with patch('pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection'):
-            consumer = RabbitMQConsumer(
-                host='localhost',
-                username='user',
-                password='pass'
-            )
+        with patch("pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection"):
+            consumer = RabbitMQConsumer(host="localhost", username="user", password="pass")
 
-            assert consumer.host == 'localhost'
+            assert consumer.host == "localhost"
             assert consumer.port == 5672
-            assert consumer.environment == 'prod'  # Default
+            assert consumer.environment == "prod"  # Default
             assert consumer.prefetch_count == 1
 
     def test_initialization_with_custom_params(self):
         """Test initialization with custom parameters."""
-        with patch('pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection'):
+        with patch("pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection"):
             consumer = RabbitMQConsumer(
-                host='rabbitmq.example.com',
+                host="rabbitmq.example.com",
                 port=5673,
-                username='custom_user',
-                password='custom_pass',
-                vhost='/custom',
-                environment='staging',
-                prefetch_count=10
+                username="custom_user",
+                password="custom_pass",
+                vhost="/custom",
+                environment="staging",
+                prefetch_count=10,
             )
 
-            assert consumer.host == 'rabbitmq.example.com'
+            assert consumer.host == "rabbitmq.example.com"
             assert consumer.port == 5673
-            assert consumer.vhost == '/custom'
-            assert consumer.environment == 'staging'
+            assert consumer.vhost == "/custom"
+            assert consumer.environment == "staging"
             assert consumer.prefetch_count == 10
 
 
 # ============================================================================
 # Queue Naming Tests
 # ============================================================================
+
 
 class TestQueueNaming:
     """Test queue naming (R compatibility)."""
@@ -95,12 +92,9 @@ class TestQueueNaming:
 
     def test_build_queue_name_prod_environment(self):
         """Test queue names in prod environment."""
-        with patch('pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection'):
+        with patch("pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection"):
             consumer = RabbitMQConsumer(
-                host='localhost',
-                username='user',
-                password='pass',
-                environment='prod'
+                host="localhost", username="user", password="pass", environment="prod"
             )
 
             assert consumer._build_queue_name("match", "discovered") == "match.discovered.prod"
@@ -110,6 +104,7 @@ class TestQueueNaming:
 # Message Processing Tests
 # ============================================================================
 
+
 class TestMessageProcessing:
     """Test message processing logic."""
 
@@ -118,7 +113,7 @@ class TestMessageProcessing:
         cons, _ = consumer
 
         message_data = {"match_id": "abc123", "timestamp": "2024-01-15"}
-        message_body = json.dumps(message_data).encode('utf-8')
+        message_body = json.dumps(message_data).encode("utf-8")
 
         def callback(data):
             assert data["match_id"] == "abc123"
@@ -133,7 +128,7 @@ class TestMessageProcessing:
         cons, _ = consumer
 
         message_data = {"match_id": "abc123"}
-        message_body = json.dumps(message_data).encode('utf-8')
+        message_body = json.dumps(message_data).encode("utf-8")
 
         def callback(data):
             return {"success": False, "error": "Processing failed"}
@@ -148,7 +143,7 @@ class TestMessageProcessing:
         cons, _ = consumer
 
         message_data = {"match_id": "abc123"}
-        message_body = json.dumps(message_data).encode('utf-8')
+        message_body = json.dumps(message_data).encode("utf-8")
 
         def callback(data):
             raise Exception("Callback error")
@@ -177,7 +172,7 @@ class TestMessageProcessing:
         cons, _ = consumer
 
         message_data = {"match_id": "abc123"}
-        message_body = json.dumps(message_data).encode('utf-8')
+        message_body = json.dumps(message_data).encode("utf-8")
 
         def callback(data):
             return "invalid"  # Should return dict
@@ -191,6 +186,7 @@ class TestMessageProcessing:
 # ============================================================================
 # Batch Consumption Tests
 # ============================================================================
+
 
 class TestBatchConsumption:
     """Test batch consumption (R processQueueMessages equivalent)."""
@@ -250,7 +246,10 @@ class TestBatchConsumption:
         cons, channel = consumer
 
         # Create 10 messages
-        messages = [(Mock(delivery_tag=i), Mock(), json.dumps({"match_id": f"m{i}"}).encode()) for i in range(10)]
+        messages = [
+            (Mock(delivery_tag=i), Mock(), json.dumps({"match_id": f"m{i}"}).encode())
+            for i in range(10)
+        ]
         messages.append((None, None, None))
 
         channel.consume.return_value = iter(messages)
@@ -269,17 +268,16 @@ class TestBatchConsumption:
 # Connection Management Tests
 # ============================================================================
 
+
 class TestConnectionManagement:
     """Test connection lifecycle management."""
 
     def test_lazy_connection_initialization(self):
         """Test that connection is not created until first use."""
-        with patch('pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection') as mock_conn_class:
-            consumer = RabbitMQConsumer(
-                host='localhost',
-                username='user',
-                password='pass'
-            )
+        with patch(
+            "pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection"
+        ) as mock_conn_class:
+            consumer = RabbitMQConsumer(host="localhost", username="user", password="pass")
 
             # Connection should not be created yet
             assert consumer._connection is None
@@ -343,6 +341,7 @@ class TestConnectionManagement:
 # Error Handling Tests
 # ============================================================================
 
+
 class TestErrorHandling:
     """Test error handling and logging."""
 
@@ -350,12 +349,11 @@ class TestErrorHandling:
         """Test that connection failure raises RabbitMQConsumerError."""
         from pika.exceptions import AMQPConnectionError
 
-        with patch('pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection', side_effect=AMQPConnectionError("Connection refused")):
-            consumer = RabbitMQConsumer(
-                host='localhost',
-                username='user',
-                password='pass'
-            )
+        with patch(
+            "pewstats_collectors.core.rabbitmq_consumer.pika.BlockingConnection",
+            side_effect=AMQPConnectionError("Connection refused"),
+        ):
+            consumer = RabbitMQConsumer(host="localhost", username="user", password="pass")
 
             with pytest.raises(RabbitMQConsumerError, match="Failed to connect to RabbitMQ"):
                 consumer._ensure_connection()
@@ -372,6 +370,7 @@ class TestErrorHandling:
 # Stats Tests
 # ============================================================================
 
+
 class TestStatistics:
     """Test statistics tracking."""
 
@@ -383,7 +382,7 @@ class TestStatistics:
 
         # Simulate processing messages
         message_data = {"match_id": "abc123"}
-        message_body = json.dumps(message_data).encode('utf-8')
+        message_body = json.dumps(message_data).encode("utf-8")
 
         def callback(data):
             return {"success": True}

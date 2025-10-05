@@ -1,15 +1,13 @@
 """Unit tests for PUBG Client with full business logic coverage."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
-import requests
-from requests.exceptions import Timeout, HTTPError
+from requests.exceptions import Timeout
 
 from pewstats_collectors.core.api_key_manager import APIKeyManager
 from pewstats_collectors.core.pubg_client import (
     PUBGClient,
-    PUBGAPIError,
     RateLimitError,
     NotFoundError
 )
@@ -141,7 +139,7 @@ class TestGetPlayerInfo:
             mock_get.return_value = mock_response
 
             # Should make new request (cache expired)
-            result = pubg_client.get_player_info(["player1"])
+            pubg_client.get_player_info(["player1"])
 
             assert mock_get.call_count == 1
 
@@ -425,7 +423,7 @@ class TestRateLimiting:
 
         mock_get.side_effect = [mock_response_429, mock_response_success]
 
-        result = pubg_client.get_player_info(["player1"])
+        pubg_client.get_player_info(["player1"])
 
         assert mock_get.call_count == 2
         mock_sleep.assert_called_once_with(1)

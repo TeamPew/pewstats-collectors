@@ -6,7 +6,7 @@ Ensures R DatabaseClient parity.
 
 import pytest
 from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch
 
 from pewstats_collectors.core.database_manager import DatabaseManager, DatabaseError
 
@@ -524,7 +524,7 @@ class TestConnectionManagement:
             mock_pool = Mock()
             mock_pool_class.return_value = mock_pool
 
-            with DatabaseManager(host="localhost", dbname="pubg", user="test", password="pass") as db:
+            with DatabaseManager(host="localhost", dbname="pubg", user="test", password="pass"):
                 pass
 
             # Should auto-disconnect

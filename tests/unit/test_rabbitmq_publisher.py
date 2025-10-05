@@ -6,8 +6,7 @@ Ensures R business logic parity.
 
 import json
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch
 
 from pewstats_collectors.core.rabbitmq_publisher import RabbitMQPublisher, RabbitMQError
 

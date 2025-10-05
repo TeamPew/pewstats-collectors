@@ -3,13 +3,12 @@ Unit tests for Match Summary Worker
 """
 
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import Mock, MagicMock, patch, call
+from datetime import datetime
+from unittest.mock import Mock
 from pewstats_collectors.workers.match_summary_worker import (
     MatchSummaryWorker,
     transform_map_name,
     parse_datetime,
-    MAP_NAME_TRANSLATIONS,
 )
 
 

@@ -246,7 +246,7 @@ class TelemetryDownloadWorker:
                 if tmp_path and os.path.exists(tmp_path):
                     try:
                         os.remove(tmp_path)
-                    except:
+                    except OSError:
                         pass
 
                 if attempt == max_attempts:
@@ -374,5 +374,5 @@ def is_gzipped(file_path: str) -> bool:
         with open(file_path, 'rb') as f:
             magic = f.read(2)
         return magic == b'\x1f\x8b'
-    except:
+    except (IOError, OSError):
         return False

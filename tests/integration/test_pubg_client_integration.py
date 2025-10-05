@@ -249,7 +249,7 @@ class TestMetadataExtractionIntegration:
         if metadata["telemetry_url"]:
             assert metadata["telemetry_url"].startswith("https://")
 
-        logger.info(f"Metadata extracted successfully:")
+        logger.info("Metadata extracted successfully:")
         logger.info(f"  Match ID: {metadata['match_id']}")
         logger.info(f"  Map: {metadata['map_name']}")
         logger.info(f"  Mode: {metadata['game_mode']}")
@@ -271,11 +271,6 @@ class TestMetadataExtractionIntegration:
 
         # Map name should be translated (not internal name like "Baltic_Main")
         map_name = metadata["map_name"]
-        internal_names = [
-            "Baltic_Main", "Chimera_Main", "Desert_Main", "DihorOtok_Main",
-            "Erangel_Main", "Heaven_Main", "Kiki_Main", "Range_Main",
-            "Savage_Main", "Summerland_Main", "Tiger_Main", "Neon_Main"
-        ]
 
         # Should be translated to friendly name (or unknown map)
         # Most maps should be translated

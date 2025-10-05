@@ -6,7 +6,7 @@ Ensures R BaseWorker parity.
 
 import json
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch
 
 from pewstats_collectors.core.rabbitmq_consumer import RabbitMQConsumer, RabbitMQConsumerError
 

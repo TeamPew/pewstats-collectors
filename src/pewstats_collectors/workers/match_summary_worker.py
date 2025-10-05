@@ -7,7 +7,7 @@ extracts participant statistics, stores them in the database, and forwards to te
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..core.database_manager import DatabaseManager
 from ..core.pubg_client import PUBGClient

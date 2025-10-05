@@ -5,9 +5,7 @@ Unit tests for Telemetry Download Worker
 import gzip
 import os
 import pytest
-import tempfile
-from datetime import datetime, timezone
-from unittest.mock import Mock, MagicMock, patch, call, mock_open
+from unittest.mock import Mock, patch
 
 from pewstats_collectors.workers.telemetry_download_worker import (
     TelemetryDownloadWorker,

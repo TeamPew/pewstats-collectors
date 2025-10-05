@@ -5,7 +5,7 @@ Unit tests for Telemetry Processing Worker
 import gzip
 import json
 import pytest
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock
 
 from pewstats_collectors.workers.telemetry_processing_worker import (
     TelemetryProcessingWorker,

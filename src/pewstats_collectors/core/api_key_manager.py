@@ -10,7 +10,7 @@ This module provides API key management for the PUBG API, including:
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 import logging
 
 
@@ -110,7 +110,7 @@ class APIKeyManager:
         # Caller will need to wait_if_needed()
         key = self._keys[self._current_index]
         self._current_index = (self._current_index + 1) % len(self._keys)
-        logger.warning(f"All API keys at rate limit, returning next key in rotation")
+        logger.warning("All API keys at rate limit, returning next key in rotation")
         return key
 
     def can_make_request(self, key: APIKey) -> bool:

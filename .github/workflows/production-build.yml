@@ -1,0 +1,128 @@
+name: Build and Push Production Image
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  build-and-push-production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convert repository name to lowercase
+        id: lowercase
+        run: echo "repository=$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Generate version tag
+        id: version
+        run: |
+          # Get short SHA for unique identification
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          # Get version from VERSION file or default to 0.0.0
+          VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
+          # Get PR number
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          echo "production_version=${VERSION}-prod.${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "pr_version=${VERSION}-pr${PR_NUMBER}.${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Debug variables
+        run: |
+          echo "Repository (original): $GITHUB_REPOSITORY"
+          echo "Repository (lowercase): ${{ steps.lowercase.outputs.repository }}"
+          echo "Production version: ${{ steps.version.outputs.production_version }}"
+          echo "PR version: ${{ steps.version.outputs.pr_version }}"
+          echo "Short SHA: ${{ steps.version.outputs.short_sha }}"
+          echo "Base version: ${{ steps.version.outputs.version }}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push production Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.lowercase.outputs.repository }}:production
+            ghcr.io/${{ steps.lowercase.outputs.repository }}:${{ steps.version.outputs.production_version }}
+            ghcr.io/${{ steps.lowercase.outputs.repository }}:${{ steps.version.outputs.pr_version }}
+            ghcr.io/${{ steps.lowercase.outputs.repository }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+
+      - name: Image summary
+        run: |
+          echo "## Production Image Built and Pushed 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ steps.lowercase.outputs.repository }}:production\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ steps.lowercase.outputs.repository }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ steps.lowercase.outputs.repository }}:${{ steps.version.outputs.production_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ steps.lowercase.outputs.repository }}:${{ steps.version.outputs.pr_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**PR:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tags = [
+              `ghcr.io/${{ steps.lowercase.outputs.repository }}:production`,
+              `ghcr.io/${{ steps.lowercase.outputs.repository }}:latest`,
+              `ghcr.io/${{ steps.lowercase.outputs.repository }}:${{ steps.version.outputs.production_version }}`,
+              `ghcr.io/${{ steps.lowercase.outputs.repository }}:${{ steps.version.outputs.pr_version }}`
+            ];
+
+            const body = `## 🚀 Production Image Built Successfully
+
+            **Version:** \`${{ steps.version.outputs.version }}\`
+            **Commit:** \`${{ steps.version.outputs.short_sha }}\`
+
+            **Available Tags:**
+            ${tags.map(tag => `- \`${tag}\``).join('\n')}
+
+            **Pull Command:**
+            \`\`\`bash
+            docker pull ghcr.io/${{ steps.lowercase.outputs.repository }}:production
+            \`\`\`
+
+            **Deploy Command:**
+            \`\`\`bash
+            docker run -d \\
+              --name pewstats-collectors \\
+              -e POSTGRES_HOST=localhost \\
+              -e POSTGRES_DB=pewstats_production \\
+              -e POSTGRES_USER=pewstats_prod_user \\
+              -e POSTGRES_PASSWORD=\${POSTGRES_PASSWORD} \\
+              -e RABBITMQ_HOST=localhost \\
+              -e PUBG_API_KEYS=\${PUBG_API_KEYS} \\
+              ghcr.io/${{ steps.lowercase.outputs.repository }}:production
+            \`\`\`
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

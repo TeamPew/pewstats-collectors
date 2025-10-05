@@ -570,6 +570,9 @@ if __name__ == "__main__":
     import os
     from pewstats_collectors.core.database_manager import DatabaseManager
     from pewstats_collectors.core.rabbitmq_consumer import RabbitMQConsumer
+    from pewstats_collectors.core.rabbitmq_publisher import RabbitMQPublisher
+    from pewstats_collectors.core.pubg_client import PUBGClient
+    from pewstats_collectors.core.api_key_manager import APIKeyManager
 
     # Configure logging
     logging.basicConfig(
@@ -586,10 +589,32 @@ if __name__ == "__main__":
         password=os.getenv("POSTGRES_PASSWORD"),
     )
 
+    # Initialize API key manager
+    api_keys_str = os.getenv("PUBG_API_KEYS", "")
+    api_keys = [{"key": key.strip(), "rpm": 10} for key in api_keys_str.split(",") if key.strip()]
+    api_key_manager = APIKeyManager(api_keys)
+
+    # Initialize PUBG client
+    pubg_client = PUBGClient(
+        api_key_manager=api_key_manager,
+        get_existing_match_ids=db_manager.get_all_match_ids,
+    )
+
+    # Initialize RabbitMQ publisher
+    rabbitmq_publisher = RabbitMQPublisher(
+        host=os.getenv("RABBITMQ_HOST"),
+        port=int(os.getenv("RABBITMQ_PORT", "5672")),
+        user=os.getenv("RABBITMQ_USER", "guest"),
+        password=os.getenv("RABBITMQ_PASSWORD", "guest"),
+        vhost=os.getenv("RABBITMQ_VHOST", "/"),
+        environment=os.getenv("ENVIRONMENT", "production"),
+    )
+
     # Initialize worker
     worker = MatchSummaryWorker(
+        pubg_client=pubg_client,
         database_manager=db_manager,
-        api_keys_str=os.getenv("PUBG_API_KEYS"),
+        rabbitmq_publisher=rabbitmq_publisher,
         worker_id=os.getenv("WORKER_ID", "match-summary-worker-1"),
     )
 
@@ -602,7 +627,7 @@ if __name__ == "__main__":
         vhost=os.getenv("RABBITMQ_VHOST", "/"),
         queue_name="match_summaries",
         callback=worker.process_message,
-        environment=os.getenv("ENVIRONMENT", "development"),
+        environment=os.getenv("ENVIRONMENT", "production"),
     )
 
     # Start consuming

@@ -404,9 +404,8 @@ class PUBGClient:
         Raises:
             PUBGAPIError: If request fails after all retries
         """
-        # Select API key and wait if needed
+        # Select API key (select_key now handles pacing automatically)
         api_key = self.key_manager.select_key()
-        self.key_manager.wait_if_needed(api_key)
 
         # Build full URL
         url = f"{self.BASE_URL}/{self.platform}{endpoint}"

@@ -15,11 +15,10 @@ Key features:
 import json
 import logging
 import time
-from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 import pika
-from pika.exceptions import AMQPConnectionError, AMQPChannelError
+from pika.exceptions import AMQPConnectionError
 
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 services:
   # Match Discovery Service - Discovers new matches for tracked players
   match-discovery:
-    image: ghcr.io/teampew/pewstats-collectors:production
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: ["python3", "-m", "pewstats_collectors.services.match_discovery"]
     environment:
       # Database configuration
@@ -42,11 +42,10 @@ services:
         max-file: "3"
     networks:
       - pewstats-network
-      - messaging-network
 
   # Match Summary Worker - Processes match details and extracts participant data
   match-summary-worker:
-    image: ghcr.io/teampew/pewstats-collectors:production
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: ["python3", "-m", "pewstats_collectors.workers.match_summary_worker"]
     environment:
       # Database configuration
@@ -87,11 +86,10 @@ services:
         max-file: "3"
     networks:
       - pewstats-network
-      - messaging-network
 
   # Telemetry Download Worker - Downloads telemetry JSON files
   telemetry-download-worker:
-    image: ghcr.io/teampew/pewstats-collectors:production
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: ["python3", "-m", "pewstats_collectors.workers.telemetry_download_worker"]
     environment:
       # Database configuration
@@ -134,11 +132,10 @@ services:
         max-file: "3"
     networks:
       - pewstats-network
-      - messaging-network
 
   # Telemetry Processing Worker - Processes telemetry events and extracts data
   telemetry-processing-worker:
-    image: ghcr.io/teampew/pewstats-collectors:production
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: ["python3", "-m", "pewstats_collectors.workers.telemetry_processing_worker"]
     environment:
       # Database configuration
@@ -181,11 +178,7 @@ services:
         max-file: "3"
     networks:
       - pewstats-network
-      - messaging-network
 
 networks:
   pewstats-network:
     external: true
-  messaging-network:
-    external: true
-    name: pewstats-messages-queue_pewstats-messaging

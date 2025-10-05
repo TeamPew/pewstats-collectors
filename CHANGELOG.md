@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.4](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.3...v1.0.4) (2025-10-05)
+
+
+### Bug Fixes
+
+* Correct MatchSummaryWorker initialization in __main__ ([ecade1f](https://github.com/TeamPew/pewstats-collectors/commit/ecade1f2c3591d5d879709d91c980dc7cd2da792))
+* Implement proactive rate limit pacing instead of reactive waiting ([34093c0](https://github.com/TeamPew/pewstats-collectors/commit/34093c0bd59bb6d8e86def56a5130be3a279328a))
+
 ## [1.0.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.2...v1.0.3) (2025-10-05)
 
 

@@ -12,7 +12,7 @@ This module provides a client for interacting with the PUBG API, including:
 
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Callable
 import requests
 from requests.exceptions import RequestException, HTTPError, Timeout

@@ -14,7 +14,6 @@ Key features:
 
 import logging
 from contextlib import contextmanager
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
 import psycopg

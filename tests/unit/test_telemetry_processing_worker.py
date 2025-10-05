@@ -4,11 +4,8 @@ Unit tests for Telemetry Processing Worker
 
 import gzip
 import json
-import os
 import pytest
-import tempfile
-from datetime import datetime, timezone
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, patch, call
 
 from pewstats_collectors.workers.telemetry_processing_worker import (
     TelemetryProcessingWorker,

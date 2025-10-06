@@ -417,7 +417,11 @@ class TestRateLimiting:
         pubg_client.get_player_info(["player1"])
 
         assert mock_get.call_count == 2
-        mock_sleep.assert_called_once_with(1)
+        # With new pacing behavior, sleep is called twice:
+        # 1. Retry backoff (1s)
+        # 2. Pacing logic in select_key() (~6.9s for 10 RPM)
+        assert mock_sleep.call_count == 2
+        assert mock_sleep.call_args_list[0][0][0] == 1  # First call: retry backoff
 
     @patch("requests.get")
     @patch("time.sleep")

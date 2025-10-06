@@ -628,20 +628,20 @@ class TelemetryProcessingWorker:
                         "SELECT game_type FROM matches WHERE match_id = %s",
                         (match_id,),
                     )
-                    rows = cur.fetchall()
+                    row = cur.fetchone()
 
-                    if not rows:
+                    if not row:
                         self.logger.warning(
                             f"[{self.worker_id}] Match {match_id} not found in database"
                         )
                         return "unknown"
 
-                    game_type = rows[0][0] or "unknown"
-                    conn.commit()  # Commit to avoid rollback warning
-                    return game_type
+                    return row[0] or "unknown"
 
         except Exception as e:
-            self.logger.warning(f"[{self.worker_id}] Failed to get game_type for {match_id}: {e}")
+            self.logger.warning(
+                f"[{self.worker_id}] Failed to get game_type for {match_id}: {type(e).__name__}: {e}"
+            )
             return "unknown"
 
     def _get_processing_status(self, match_id: str) -> Dict[str, bool]:
@@ -666,9 +666,9 @@ class TelemetryProcessingWorker:
                         """,
                         (match_id,),
                     )
-                    rows = cur.fetchall()
+                    row = cur.fetchone()
 
-                    if not rows:
+                    if not row:
                         # Match not found, assume nothing is processed
                         return {
                             "landings_processed": False,
@@ -677,19 +677,16 @@ class TelemetryProcessingWorker:
                             "damage_processed": False,
                         }
 
-                    row = rows[0]
-                    status = {
+                    return {
                         "landings_processed": row[0] or False,
                         "kills_processed": row[1] or False,
                         "weapons_processed": row[2] or False,
                         "damage_processed": row[3] or False,
                     }
-                    conn.commit()  # Commit to avoid rollback warning
-                    return status
 
         except Exception as e:
             self.logger.warning(
-                f"[{self.worker_id}] Failed to get processing status for {match_id}: {e}"
+                f"[{self.worker_id}] Failed to get processing status for {match_id}: {type(e).__name__}: {e}"
             )
             # On error, assume nothing is processed to be safe
             return {

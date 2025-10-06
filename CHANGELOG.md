@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.6](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.5...v1.4.6) (2025-10-06)
+
+
+### Bug Fixes
+
+* use dict key access for psycopg3 rows with dict_row factory ([dfd5691](https://github.com/TeamPew/pewstats-collectors/commit/dfd5691a83b5b1345f56c68ac7655d81575359e4))
+* use dict key access for psycopg3 rows with dict_row factory ([92349a6](https://github.com/TeamPew/pewstats-collectors/commit/92349a6fa8f9548e4449446905cc579d878005d2))
+
 ## [1.4.5](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.4...v1.4.5) (2025-10-06)
 
 

@@ -355,7 +355,6 @@ if __name__ == "__main__":
     # Initialize worker
     worker = TelemetryProcessingWorker(
         database_manager=db_manager,
-        storage_path=os.getenv("TELEMETRY_STORAGE_PATH", "/opt/pewstats-platform/data/telemetry"),
         worker_id=os.getenv("WORKER_ID", "telemetry-processing-worker-1"),
     )
 

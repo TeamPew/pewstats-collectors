@@ -416,3 +416,26 @@ TELEMETRY_PROCESSING_WORKERS = 2
 7. Add monitoring/logging
 8. Testing strategy
 
+---
+
+## Development Workflow Rules
+
+### CRITICAL: Code Formatting
+**ALWAYS run `ruff format` before committing any Python code changes.**
+
+When making changes to Python files:
+1. Make your code changes
+2. Run `ruff format src/ tests/` (or specific files)
+3. ONLY THEN commit and push
+
+This is **mandatory** - the CI will fail if formatting is not applied.
+
+Example workflow:
+```bash
+# Edit files
+git add -A
+ruff format src/ tests/
+git commit -m "..."
+git push
+```
+

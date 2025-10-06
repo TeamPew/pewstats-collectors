@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.10...v1.2.0) (2025-10-06)
+
+
+### Features
+
+* add script to republish lost telemetry messages ([52fa455](https://github.com/TeamPew/pewstats-collectors/commit/52fa4557a32663ae3cac15b37a799c9851707b0d))
+* add script to republish lost telemetry messages ([0bf7ee7](https://github.com/TeamPew/pewstats-collectors/commit/0bf7ee7beabe171dd02ebf93ed8e5bedda1e9ccb))
+
 ## [1.1.10](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.9...v1.1.10) (2025-10-06)
 
 

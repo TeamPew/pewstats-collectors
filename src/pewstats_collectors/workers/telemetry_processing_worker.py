@@ -636,7 +636,7 @@ class TelemetryProcessingWorker:
                         )
                         return "unknown"
 
-                    return row[0] or "unknown"
+                    return row["game_type"] or "unknown"
 
         except Exception as e:
             self.logger.warning(
@@ -678,10 +678,10 @@ class TelemetryProcessingWorker:
                         }
 
                     return {
-                        "landings_processed": row[0] or False,
-                        "kills_processed": row[1] or False,
-                        "weapons_processed": row[2] or False,
-                        "damage_processed": row[3] or False,
+                        "landings_processed": row["landings_processed"] or False,
+                        "kills_processed": row["kills_processed"] or False,
+                        "weapons_processed": row["weapons_processed"] or False,
+                        "damage_processed": row["damage_processed"] or False,
                     }
 
         except Exception as e:

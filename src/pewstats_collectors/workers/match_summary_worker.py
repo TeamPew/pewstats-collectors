@@ -630,4 +630,4 @@ if __name__ == "__main__":
 
     # Start consuming
     print(f"Starting match summary worker: {worker.worker_id}")
-    consumer.consume_messages("match", "summaries", worker.process_message)
+    consumer.consume_messages("match", "discovered", worker.process_message)

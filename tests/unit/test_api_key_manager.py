@@ -165,7 +165,7 @@ class TestAPIKeyManager:
         assert 1.5 < elapsed < 2.5
 
     def test_select_key_skips_limited_keys(self):
-        """Test select_key skips keys at rate limit."""
+        """Test select_key uses round-robin regardless of rate limit status."""
         keys = [
             {"key": "key1", "rpm": 10},
             {"key": "key2", "rpm": 10},
@@ -181,9 +181,10 @@ class TestAPIKeyManager:
         for _ in range(10):
             manager._keys[1].request_times.append(datetime.now())
 
-        # First select should return key3 (only available key)
+        # With new pacing behavior, select_key uses round-robin
+        # Starting from index 0, first select returns key1
         selected = manager.select_key()
-        assert selected.key == "key3"
+        assert selected.key == "key1"
 
     def test_select_key_returns_next_when_all_limited(self):
         """Test select_key returns next key even when all are limited."""

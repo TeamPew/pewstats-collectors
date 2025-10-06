@@ -91,10 +91,18 @@ class TelemetryProcessingWorker:
 
             # Extract event types
             landings = self.extract_landings(events, match_id, data)
-            self.logger.debug(f"[{self.worker_id}] Extracted {len(landings)} landings")
+            kill_positions = self.extract_kill_positions(events, match_id, data)
+            weapon_kills = self.extract_weapon_kill_events(events, match_id, data)
+            damage_events = self.extract_damage_events(events, match_id, data)
+
+            self.logger.debug(
+                f"[{self.worker_id}] Extracted events: {len(landings)} landings, "
+                f"{len(kill_positions)} kill positions, {len(weapon_kills)} weapon kills, "
+                f"{len(damage_events)} damage events"
+            )
 
             # Store in database (transaction)
-            self._store_events(match_id, landings)
+            self._store_events(match_id, landings, kill_positions, weapon_kills, damage_events)
 
             # Update match status
             self._update_match_completion(match_id)
@@ -103,7 +111,8 @@ class TelemetryProcessingWorker:
             self.processed_count += 1
             self.logger.info(
                 f"[{self.worker_id}] ✅ Successfully processed telemetry for match {match_id} "
-                f"({len(landings)} landings)"
+                f"({len(landings)} landings, {len(kill_positions)} kills, "
+                f"{len(weapon_kills)} weapon kills, {len(damage_events)} damage events)"
             )
 
             return {"success": True}
@@ -180,6 +189,269 @@ class TelemetryProcessingWorker:
 
         return landings
 
+    def extract_kill_positions(
+        self, events: List[Dict], match_id: str, match_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract kill position events from telemetry.
+
+        Args:
+            events: List of telemetry events
+            match_id: Match ID
+            match_data: Match metadata
+
+        Returns:
+            List of kill position records
+        """
+        kills = []
+
+        for event in events:
+            event_type = get_event_type(event)
+
+            if event_type != "LogPlayerKillV2":
+                continue
+
+            # Extract victim info
+            victim = event.get("victim", {})
+            victim_name = victim.get("name")
+            victim_team_id = victim.get("teamId")
+            victim_location = victim.get("location", {})
+
+            # Extract finisher info
+            finisher = event.get("finisher", {})
+            finisher_name = finisher.get("name")
+            finisher_team_id = finisher.get("teamId")
+            finisher_location = finisher.get("location", {})
+
+            # Extract DBNO maker info
+            dbno_maker = event.get("dbnoMaker", {})
+            dbno_maker_name = dbno_maker.get("name")
+            dbno_maker_team_id = dbno_maker.get("teamId")
+            dbno_maker_location = dbno_maker.get("location", {})
+
+            # Extract damage info
+            finisher_damage = event.get("finisherDamageInfo", {})
+            dbno_damage = event.get("dbnoMakerDamageInfo", {})
+
+            # Try both possible keys for is_game
+            is_game = get_nested(event, "common.isGame") or get_nested(event, "common.is_game")
+
+            # Validate
+            if not victim_name or not victim_name.startswith("account."):
+                continue
+
+            if is_game is None or is_game < 1:
+                continue
+
+            kills.append(
+                {
+                    "match_id": match_id,
+                    "attack_id": event.get("attackId"),
+                    "dbno_id": event.get("dbnoId"),
+                    "victim_name": victim_name,
+                    "victim_team_id": victim_team_id,
+                    "victim_x_location": victim_location.get("x"),
+                    "victim_y_location": victim_location.get("y"),
+                    "victim_z_location": victim_location.get("z"),
+                    "victim_in_blue_zone": victim.get("isInBlueZone", False),
+                    "victim_in_vehicle": victim.get("isInVehicle", False),
+                    "killed_in_zone": event.get("killedInZone"),
+                    "dbno_maker_name": dbno_maker_name,
+                    "dbno_maker_team_id": dbno_maker_team_id,
+                    "dbno_maker_x_location": dbno_maker_location.get("x"),
+                    "dbno_maker_y_location": dbno_maker_location.get("y"),
+                    "dbno_maker_z_location": dbno_maker_location.get("z"),
+                    "dbno_maker_zone": event.get("dbnoMakerZone"),
+                    "dbno_damage_reason": dbno_damage.get("damageReason"),
+                    "dbno_damage_category": dbno_damage.get("damageCauserName"),
+                    "dbno_damage_causer_name": dbno_damage.get("damageCauserName"),
+                    "dbno_damage_causer_distance": dbno_damage.get("distance"),
+                    "finisher_name": finisher_name,
+                    "finisher_team_id": finisher_team_id,
+                    "finisher_x_location": finisher_location.get("x"),
+                    "finisher_y_location": finisher_location.get("y"),
+                    "finisher_z_location": finisher_location.get("z"),
+                    "finisher_zone": event.get("finisherZone"),
+                    "finisher_damage_reason": finisher_damage.get("damageReason"),
+                    "finisher_damage_category": finisher_damage.get("damageTypeCategory"),
+                    "finisher_damage_causer_name": finisher_damage.get("damageCauserName"),
+                    "finisher_damage_causer_distance": finisher_damage.get("distance"),
+                    "is_game": is_game,
+                    "map_name": match_data.get("map_name"),
+                    "game_type": "unknown",
+                    "game_mode": match_data.get("game_mode"),
+                    "match_datetime": match_data.get("match_datetime"),
+                }
+            )
+
+        return kills
+
+    def extract_weapon_kill_events(
+        self, events: List[Dict], match_id: str, match_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract weapon kill events from telemetry.
+
+        Args:
+            events: List of telemetry events
+            match_id: Match ID
+            match_data: Match metadata
+
+        Returns:
+            List of weapon kill event records
+        """
+        weapon_kills = []
+
+        for event in events:
+            event_type = get_event_type(event)
+
+            if event_type != "LogPlayerKillV2":
+                continue
+
+            # Extract killer/finisher info
+            finisher = event.get("finisher", {})
+            killer_name = finisher.get("name")
+            killer_team_id = finisher.get("teamId")
+            killer_location = finisher.get("location", {})
+
+            # Extract victim info
+            victim = event.get("victim", {})
+            victim_name = victim.get("name")
+            victim_team_id = victim.get("teamId")
+            victim_location = victim.get("location", {})
+
+            # Extract damage info
+            damage_info = event.get("finisherDamageInfo", {})
+
+            # Extract timestamp
+            timestamp = event.get("_D")  # Timestamp field
+
+            # Try both possible keys for is_game
+            is_game = get_nested(event, "common.isGame") or get_nested(event, "common.is_game")
+
+            # Validate
+            if not killer_name or not victim_name:
+                continue
+
+            if is_game is None or is_game < 1:
+                continue
+
+            weapon_id = damage_info.get("damageCauserName", "Unknown")
+
+            weapon_kills.append(
+                {
+                    "match_id": match_id,
+                    "event_timestamp": timestamp,
+                    "killer_name": killer_name,
+                    "killer_team_id": killer_team_id,
+                    "killer_x": killer_location.get("x"),
+                    "killer_y": killer_location.get("y"),
+                    "killer_z": killer_location.get("z"),
+                    "victim_name": victim_name,
+                    "victim_team_id": victim_team_id,
+                    "victim_x": victim_location.get("x"),
+                    "victim_y": victim_location.get("y"),
+                    "victim_z": victim_location.get("z"),
+                    "weapon_id": weapon_id,
+                    "damage_type": damage_info.get("damageTypeCategory"),
+                    "damage_reason": damage_info.get("damageReason"),
+                    "distance": damage_info.get("distance"),
+                    "is_knock_down": event.get("dbnoId") is not None,
+                    "is_kill": True,
+                    "map_name": match_data.get("map_name"),
+                    "game_mode": match_data.get("game_mode"),
+                    "match_type": "unknown",
+                    "zone_phase": None,  # Would need to track from LogGameStatePeriodic
+                    "time_survived": None,  # Would need to calculate
+                    "is_blue_zone": victim.get("isInBlueZone", False),
+                    "is_red_zone": victim.get("isInRedZone", False),
+                    "killer_in_vehicle": finisher.get("isInVehicle", False),
+                    "victim_in_vehicle": victim.get("isInVehicle", False),
+                }
+            )
+
+        return weapon_kills
+
+    def extract_damage_events(
+        self, events: List[Dict], match_id: str, match_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract damage events from telemetry.
+
+        Args:
+            events: List of telemetry events
+            match_id: Match ID
+            match_data: Match metadata
+
+        Returns:
+            List of damage event records
+        """
+        damage_events = []
+
+        for event in events:
+            event_type = get_event_type(event)
+
+            if event_type != "LogPlayerTakeDamage":
+                continue
+
+            # Extract attacker info
+            attacker = event.get("attacker", {})
+            attacker_name = attacker.get("name")
+            attacker_team_id = attacker.get("teamId")
+            attacker_location = attacker.get("location", {})
+            attacker_health = attacker.get("health")
+
+            # Extract victim info
+            victim = event.get("victim", {})
+            victim_name = victim.get("name")
+            victim_team_id = victim.get("teamId")
+            victim_location = victim.get("location", {})
+            victim_health = victim.get("health")
+
+            # Extract damage info
+            damage = event.get("damage")
+            damage_type = event.get("damageTypeCategory")
+            damage_reason = event.get("damageReason")
+            damage_causer = event.get("damageCauserName")
+
+            # Extract timestamp
+            timestamp = event.get("_D")
+
+            # Try both possible keys for is_game
+            is_game = get_nested(event, "common.isGame") or get_nested(event, "common.is_game")
+
+            # Validate
+            if not victim_name:
+                continue
+
+            if is_game is None or is_game < 1:
+                continue
+
+            damage_events.append(
+                {
+                    "match_id": match_id,
+                    "attacker_name": attacker_name,
+                    "attacker_team_id": attacker_team_id,
+                    "attacker_health": attacker_health,
+                    "attacker_location_x": attacker_location.get("x"),
+                    "attacker_location_y": attacker_location.get("y"),
+                    "attacker_location_z": attacker_location.get("z"),
+                    "victim_name": victim_name,
+                    "victim_team_id": victim_team_id,
+                    "victim_health": victim_health,
+                    "victim_location_x": victim_location.get("x"),
+                    "victim_location_y": victim_location.get("y"),
+                    "victim_location_z": victim_location.get("z"),
+                    "damage_type_category": damage_type,
+                    "damage_reason": damage_reason,
+                    "damage": damage,
+                    "weapon_id": damage_causer,
+                    "event_timestamp": timestamp,
+                }
+            )
+
+        return damage_events
+
     def get_stats(self) -> Dict[str, Any]:
         """
         Get worker statistics.
@@ -237,13 +509,23 @@ class TelemetryProcessingWorker:
             self.logger.error(f"[{self.worker_id}] Failed to read telemetry file {file_path}: {e}")
             raise
 
-    def _store_events(self, match_id: str, landings: List[Dict]) -> None:
+    def _store_events(
+        self,
+        match_id: str,
+        landings: List[Dict],
+        kill_positions: List[Dict],
+        weapon_kills: List[Dict],
+        damage_events: List[Dict],
+    ) -> None:
         """
         Store extracted events in database.
 
         Args:
             match_id: Match ID
             landings: Landing events to store
+            kill_positions: Kill position events to store
+            weapon_kills: Weapon kill events to store
+            damage_events: Damage events to store
         """
         # Insert landings
         if landings:
@@ -252,10 +534,34 @@ class TelemetryProcessingWorker:
                 f"[{self.worker_id}] Inserted {inserted}/{len(landings)} landings for match {match_id}"
             )
 
+        # Insert kill positions
+        if kill_positions:
+            inserted = self.database_manager.insert_kill_positions(kill_positions)
+            self.logger.debug(
+                f"[{self.worker_id}] Inserted {inserted}/{len(kill_positions)} kill positions for match {match_id}"
+            )
+
+        # Insert weapon kills
+        if weapon_kills:
+            inserted = self.database_manager.insert_weapon_kill_events(weapon_kills)
+            self.logger.debug(
+                f"[{self.worker_id}] Inserted {inserted}/{len(weapon_kills)} weapon kills for match {match_id}"
+            )
+
+        # Insert damage events
+        if damage_events:
+            inserted = self.database_manager.insert_damage_events(damage_events)
+            self.logger.debug(
+                f"[{self.worker_id}] Inserted {inserted}/{len(damage_events)} damage events for match {match_id}"
+            )
+
         # Update processing flags
         self.database_manager.update_match_processing_flags(
             match_id,
             landings_processed=bool(landings),
+            kills_processed=bool(kill_positions),
+            weapons_processed=bool(weapon_kills),
+            damage_processed=bool(damage_events),
         )
 
     def _update_match_completion(self, match_id: str) -> None:

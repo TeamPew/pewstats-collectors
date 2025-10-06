@@ -176,6 +176,21 @@ class RabbitMQConsumer:
             self._ensure_connection()
 
             queue_name = self._build_queue_name(type, step)
+            exchange_name = self._build_exchange_name(type)
+
+            # Declare exchange
+            self._channel.exchange_declare(
+                exchange=exchange_name, exchange_type="topic", durable=True
+            )
+
+            # Declare queue
+            self._channel.queue_declare(queue=queue_name, durable=True)
+
+            # Bind queue to exchange
+            routing_key = f"{type}.{step}"
+            self._channel.queue_bind(
+                exchange=exchange_name, queue=queue_name, routing_key=routing_key
+            )
 
             logger.info(f"Starting consumption from queue: {queue_name}")
 

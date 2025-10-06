@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.0...v1.4.1) (2025-10-06)
+
+
+### Bug Fixes
+
+* handle None values in telemetry event extraction ([fc218df](https://github.com/TeamPew/pewstats-collectors/commit/fc218df837e14311fb06b8ae18c4df1bdd85ba72))
+* handle None values in telemetry event extraction ([3406408](https://github.com/TeamPew/pewstats-collectors/commit/34064088e232e5ad16df5cb2df7ca50f0bc86a0f))
+
 ## [1.4.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.3.0...v1.4.0) (2025-10-06)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.4...v1.1.0) (2025-10-06)
+
+
+### Features
+
+* Add mandatory ruff format workflow rule ([4e690d9](https://github.com/TeamPew/pewstats-collectors/commit/4e690d983d6bb46e6ec6dbc6d0f2581fac90e57d))
+* Add mandatory ruff format workflow rule ([9e5fd8d](https://github.com/TeamPew/pewstats-collectors/commit/9e5fd8d0543d8224e3b10ede44c9ba15b44d62cd))
+
 ## [1.0.4](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.3...v1.0.4) (2025-10-05)
 
 

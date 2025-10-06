@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.5](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.4...v1.4.5) (2025-10-06)
+
+
+### Bug Fixes
+
+* simplify database queries and improve error logging ([63a3b1c](https://github.com/TeamPew/pewstats-collectors/commit/63a3b1cf1ad2fee0b1420f7045362a59fdb73805))
+* simplify database queries and improve error logging ([d5a1b2e](https://github.com/TeamPew/pewstats-collectors/commit/d5a1b2e835ff6c74a7e5c972908252cb977761fd))
+
 ## [1.4.4](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.3...v1.4.4) (2025-10-06)
 
 

@@ -89,6 +89,16 @@ class TelemetryProcessingWorker:
                 f"[{self.worker_id}] Parsed {len(events)} events for match {match_id}"
             )
 
+            # Get match game_type to determine if we should process telemetry events
+            game_type = self._get_match_game_type(match_id)
+
+            # Only process telemetry events for competitive (ranked) and official (normal) games
+            if game_type not in ["competitive", "official"]:
+                self.logger.info(
+                    f"[{self.worker_id}] Match {match_id} has game_type='{game_type}', skipping telemetry event processing"
+                )
+                return {"success": True, "skipped": True, "reason": f"game_type={game_type}"}
+
             # Check which event types are already processed
             processing_status = self._get_processing_status(match_id)
 
@@ -273,7 +283,8 @@ class TelemetryProcessingWorker:
             is_game = get_nested(event, "common.isGame") or get_nested(event, "common.is_game")
 
             # Validate
-            if not victim_name or not victim_name.startswith("account."):
+            victim_account_id = victim.get("accountId") if victim else None
+            if not victim_account_id or not victim_account_id.startswith("account."):
                 continue
 
             if is_game is None or is_game < 1:
@@ -599,6 +610,37 @@ class TelemetryProcessingWorker:
             weapons_processed=bool(weapon_kills),
             damage_processed=bool(damage_events),
         )
+
+    def _get_match_game_type(self, match_id: str) -> str:
+        """
+        Get the game_type for a match to determine if telemetry should be processed.
+
+        Args:
+            match_id: Match ID
+
+        Returns:
+            game_type string (e.g., 'competitive', 'official', 'arcade', 'custom', etc.)
+        """
+        try:
+            with self.database_manager._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT game_type FROM matches WHERE match_id = %s",
+                        (match_id,),
+                    )
+                    rows = cur.fetchall()
+
+                    if not rows:
+                        self.logger.warning(
+                            f"[{self.worker_id}] Match {match_id} not found in database"
+                        )
+                        return "unknown"
+
+                    return rows[0][0] or "unknown"
+
+        except Exception as e:
+            self.logger.warning(f"[{self.worker_id}] Failed to get game_type for {match_id}: {e}")
+            return "unknown"
 
     def _get_processing_status(self, match_id: str) -> Dict[str, bool]:
         """

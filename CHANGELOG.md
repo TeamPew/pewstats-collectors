@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.6](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.5...v1.1.6) (2025-10-06)
+
+
+### Bug Fixes
+
+* add continuous mode to match discovery service ([a14695c](https://github.com/TeamPew/pewstats-collectors/commit/a14695c32ddf2b598c5718f600f6acfec9c5d903))
+* correct parameter names in telemetry download worker initialization ([3d74e8e](https://github.com/TeamPew/pewstats-collectors/commit/3d74e8e53c501f9a33b2b8d5c324d569100b3dac))
+
 ## [1.1.5](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.4...v1.1.5) (2025-10-06)
 
 

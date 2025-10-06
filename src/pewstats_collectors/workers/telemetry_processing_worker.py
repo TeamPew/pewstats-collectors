@@ -89,11 +89,47 @@ class TelemetryProcessingWorker:
                 f"[{self.worker_id}] Parsed {len(events)} events for match {match_id}"
             )
 
-            # Extract event types
-            landings = self.extract_landings(events, match_id, data)
-            kill_positions = self.extract_kill_positions(events, match_id, data)
-            weapon_kills = self.extract_weapon_kill_events(events, match_id, data)
-            damage_events = self.extract_damage_events(events, match_id, data)
+            # Check which event types are already processed
+            processing_status = self._get_processing_status(match_id)
+
+            # Log what needs processing
+            to_process = []
+            if not processing_status.get("landings_processed"):
+                to_process.append("landings")
+            if not processing_status.get("kills_processed"):
+                to_process.append("kills")
+            if not processing_status.get("weapons_processed"):
+                to_process.append("weapons")
+            if not processing_status.get("damage_processed"):
+                to_process.append("damage")
+
+            if to_process:
+                self.logger.info(
+                    f"[{self.worker_id}] Match {match_id} needs processing for: {', '.join(to_process)}"
+                )
+            else:
+                self.logger.info(
+                    f"[{self.worker_id}] Match {match_id} already fully processed, skipping"
+                )
+                return {"success": True, "skipped": True}
+
+            # Extract only unprocessed event types
+            landings = []
+            kill_positions = []
+            weapon_kills = []
+            damage_events = []
+
+            if not processing_status.get("landings_processed"):
+                landings = self.extract_landings(events, match_id, data)
+
+            if not processing_status.get("kills_processed"):
+                kill_positions = self.extract_kill_positions(events, match_id, data)
+
+            if not processing_status.get("weapons_processed"):
+                weapon_kills = self.extract_weapon_kill_events(events, match_id, data)
+
+            if not processing_status.get("damage_processed"):
+                damage_events = self.extract_damage_events(events, match_id, data)
 
             self.logger.debug(
                 f"[{self.worker_id}] Extracted events: {len(landings)} landings, "
@@ -563,6 +599,59 @@ class TelemetryProcessingWorker:
             weapons_processed=bool(weapon_kills),
             damage_processed=bool(damage_events),
         )
+
+    def _get_processing_status(self, match_id: str) -> Dict[str, bool]:
+        """
+        Get the processing status flags for a match.
+
+        Args:
+            match_id: Match ID
+
+        Returns:
+            Dictionary with processing status flags
+        """
+        try:
+            with self.database_manager._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT landings_processed, kills_processed,
+                               weapons_processed, damage_processed
+                        FROM matches
+                        WHERE match_id = %s
+                        """,
+                        (match_id,),
+                    )
+                    rows = cur.fetchall()
+
+                    if not rows:
+                        # Match not found, assume nothing is processed
+                        return {
+                            "landings_processed": False,
+                            "kills_processed": False,
+                            "weapons_processed": False,
+                            "damage_processed": False,
+                        }
+
+                    row = rows[0]
+                    return {
+                        "landings_processed": row[0] or False,
+                        "kills_processed": row[1] or False,
+                        "weapons_processed": row[2] or False,
+                        "damage_processed": row[3] or False,
+                    }
+
+        except Exception as e:
+            self.logger.warning(
+                f"[{self.worker_id}] Failed to get processing status for {match_id}: {e}"
+            )
+            # On error, assume nothing is processed to be safe
+            return {
+                "landings_processed": False,
+                "kills_processed": False,
+                "weapons_processed": False,
+                "damage_processed": False,
+            }
 
     def _update_match_completion(self, match_id: str) -> None:
         """

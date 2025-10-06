@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.1...v1.1.2) (2025-10-06)
+
+
+### Bug Fixes
+
+* Correct RabbitMQConsumer usage in all workers ([9d14336](https://github.com/TeamPew/pewstats-collectors/commit/9d14336e55549a895b3c78e77f89a26e89d6dfd1))
+* Worker crashes and API rate limiting ([c30b232](https://github.com/TeamPew/pewstats-collectors/commit/c30b2325b656cc57ba4b3b600e73ac6c6c54f0ec))
+
 ## [1.1.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.0...v1.1.1) (2025-10-06)
 
 

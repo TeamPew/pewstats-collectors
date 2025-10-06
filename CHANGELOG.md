@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.0...v1.1.1) (2025-10-06)
+
+
+### Bug Fixes
+
+* Re-apply RabbitMQ parameter fixes after merge ([9f61b6c](https://github.com/TeamPew/pewstats-collectors/commit/9f61b6cbe9e7a1edaecd84f2c1496ca9ffd19bf8))
+* Re-apply RabbitMQ parameter fixes after merge ([cc3e6d8](https://github.com/TeamPew/pewstats-collectors/commit/cc3e6d8dd09f65aa6a1cb7212e067fd127b0e9d8))
+
 ## [1.1.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.0.4...v1.1.0) (2025-10-06)
 
 

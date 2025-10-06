@@ -248,26 +248,26 @@ class TelemetryProcessingWorker:
                 continue
 
             # Extract victim info
-            victim = event.get("victim", {})
-            victim_name = victim.get("name")
-            victim_team_id = victim.get("teamId")
-            victim_location = victim.get("location", {})
+            victim = event.get("victim") or {}
+            victim_name = victim.get("name") if victim else None
+            victim_team_id = victim.get("teamId") if victim else None
+            victim_location = victim.get("location") or {} if victim else {}
 
             # Extract finisher info
-            finisher = event.get("finisher", {})
-            finisher_name = finisher.get("name")
-            finisher_team_id = finisher.get("teamId")
-            finisher_location = finisher.get("location", {})
+            finisher = event.get("finisher") or {}
+            finisher_name = finisher.get("name") if finisher else None
+            finisher_team_id = finisher.get("teamId") if finisher else None
+            finisher_location = finisher.get("location") or {} if finisher else {}
 
             # Extract DBNO maker info
-            dbno_maker = event.get("dbnoMaker", {})
-            dbno_maker_name = dbno_maker.get("name")
-            dbno_maker_team_id = dbno_maker.get("teamId")
-            dbno_maker_location = dbno_maker.get("location", {})
+            dbno_maker = event.get("dbnoMaker") or {}
+            dbno_maker_name = dbno_maker.get("name") if dbno_maker else None
+            dbno_maker_team_id = dbno_maker.get("teamId") if dbno_maker else None
+            dbno_maker_location = dbno_maker.get("location") or {} if dbno_maker else {}
 
             # Extract damage info
-            finisher_damage = event.get("finisherDamageInfo", {})
-            dbno_damage = event.get("dbnoMakerDamageInfo", {})
+            finisher_damage = event.get("finisherDamageInfo") or {}
+            dbno_damage = event.get("dbnoMakerDamageInfo") or {}
 
             # Try both possible keys for is_game
             is_game = get_nested(event, "common.isGame") or get_nested(event, "common.is_game")
@@ -345,19 +345,19 @@ class TelemetryProcessingWorker:
                 continue
 
             # Extract killer/finisher info
-            finisher = event.get("finisher", {})
-            killer_name = finisher.get("name")
-            killer_team_id = finisher.get("teamId")
-            killer_location = finisher.get("location", {})
+            finisher = event.get("finisher") or {}
+            killer_name = finisher.get("name") if finisher else None
+            killer_team_id = finisher.get("teamId") if finisher else None
+            killer_location = finisher.get("location") or {} if finisher else {}
 
             # Extract victim info
-            victim = event.get("victim", {})
-            victim_name = victim.get("name")
-            victim_team_id = victim.get("teamId")
-            victim_location = victim.get("location", {})
+            victim = event.get("victim") or {}
+            victim_name = victim.get("name") if victim else None
+            victim_team_id = victim.get("teamId") if victim else None
+            victim_location = victim.get("location") or {} if victim else {}
 
             # Extract damage info
-            damage_info = event.get("finisherDamageInfo", {})
+            damage_info = event.get("finisherDamageInfo") or {}
 
             # Extract timestamp
             timestamp = event.get("_D")  # Timestamp field
@@ -431,18 +431,18 @@ class TelemetryProcessingWorker:
                 continue
 
             # Extract attacker info
-            attacker = event.get("attacker", {})
-            attacker_name = attacker.get("name")
-            attacker_team_id = attacker.get("teamId")
-            attacker_location = attacker.get("location", {})
-            attacker_health = attacker.get("health")
+            attacker = event.get("attacker") or {}
+            attacker_name = attacker.get("name") if attacker else None
+            attacker_team_id = attacker.get("teamId") if attacker else None
+            attacker_location = attacker.get("location") or {} if attacker else {}
+            attacker_health = attacker.get("health") if attacker else None
 
             # Extract victim info
-            victim = event.get("victim", {})
-            victim_name = victim.get("name")
-            victim_team_id = victim.get("teamId")
-            victim_location = victim.get("location", {})
-            victim_health = victim.get("health")
+            victim = event.get("victim") or {}
+            victim_name = victim.get("name") if victim else None
+            victim_team_id = victim.get("teamId") if victim else None
+            victim_location = victim.get("location") or {} if victim else {}
+            victim_health = victim.get("health") if victim else None
 
             # Extract damage info
             damage = event.get("damage")

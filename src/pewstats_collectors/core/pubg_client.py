@@ -404,8 +404,18 @@ class PUBGClient:
         Raises:
             PUBGAPIError: If request fails after all retries
         """
-        # Select API key (select_key now handles pacing automatically)
-        api_key = self.key_manager.select_key()
+        # Only apply rate limiting/pacing for /players endpoint (10 RPM limit)
+        # The /matches endpoint is not rate limited
+        if endpoint.startswith("/players"):
+            # Select API key with pacing for rate-limited endpoint
+            api_key = self.key_manager.select_key()
+        else:
+            # For non-rate-limited endpoints (e.g., /matches), just rotate keys without pacing
+            # Use round-robin index directly without waiting
+            api_key = self.key_manager._keys[self.key_manager._current_index]
+            self.key_manager._current_index = (self.key_manager._current_index + 1) % len(
+                self.key_manager._keys
+            )
 
         # Build full URL
         url = f"{self.BASE_URL}/{self.platform}{endpoint}"
@@ -418,8 +428,9 @@ class PUBGClient:
             logger.debug(f"Making request to {endpoint}")
             response = requests.get(url, headers=headers, params=params, timeout=self.timeout)
 
-            # Record successful request
-            self.key_manager.record_request(api_key)
+            # Only record requests for rate-limited endpoints
+            if endpoint.startswith("/players"):
+                self.key_manager.record_request(api_key)
 
             # Handle HTTP errors
             if response.status_code == 404:

@@ -65,11 +65,11 @@ class MatchDiscoveryService:
         self.rabbitmq_publisher = rabbitmq_publisher
         self.logger = logger or logging.getLogger(__name__)
 
-    def run(self, max_players: int = 500) -> Dict[str, Any]:
+    def run(self, max_players: Optional[int] = None) -> Dict[str, Any]:
         """Run match discovery pipeline.
 
         Args:
-            max_players: Maximum number of players to check (default: 500)
+            max_players: Maximum number of players to check (default: None = all players)
 
         Returns:
             Summary dictionary:
@@ -116,17 +116,19 @@ class MatchDiscoveryService:
 
         return summary
 
-    def _get_active_players(self, max_players: int) -> List[Dict[str, Any]]:
+    def _get_active_players(self, max_players: Optional[int]) -> List[Dict[str, Any]]:
         """Get active players from database.
 
         Args:
-            max_players: Maximum number of players to fetch
+            max_players: Maximum number of players to fetch (None = all players)
 
         Returns:
             List of player dictionaries
         """
         try:
-            return self.database.list_players(limit=max_players)
+            # If max_players is None, fetch all players (use a very high limit)
+            limit = max_players if max_players is not None else 10000
+            return self.database.list_players(limit=limit)
         except Exception as e:
             self.logger.error(f"Failed to fetch players from database: {e}")
             return []
@@ -291,10 +293,10 @@ class MatchDiscoveryService:
 
 
 @click.command()
-@click.option("--max-players", default=500, help="Maximum players to check (default: 500)")
+@click.option("--max-players", default=None, type=int, help="Maximum players to check (default: all)")
 @click.option("--env-file", default=".env", help="Path to .env file (default: .env)")
 @click.option("--log-level", default="INFO", help="Log level (default: INFO)")
-def discover_matches(max_players: int, env_file: str, log_level: str):
+def discover_matches(max_players: Optional[int], env_file: str, log_level: str):
     """Discover new PUBG matches for tracked players.
 
     This service replicates the R check-for-new-matches.R pipeline:

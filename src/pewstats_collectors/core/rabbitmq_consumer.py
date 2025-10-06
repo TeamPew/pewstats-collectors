@@ -114,6 +114,19 @@ class RabbitMQConsumer:
         """
         return f"{type}.{step}.{self.environment}"
 
+    def _build_exchange_name(self, type: str) -> str:
+        """Build environment-aware exchange name.
+
+        Format: {type}.exchange.{environment}
+
+        Args:
+            type: Message type (match, stats, telemetry)
+
+        Returns:
+            Exchange name (e.g., "match.exchange.prod")
+        """
+        return f"{type}.exchange.{self.environment}"
+
     def _ensure_connection(self) -> None:
         """Ensure connection and channel are established.
 

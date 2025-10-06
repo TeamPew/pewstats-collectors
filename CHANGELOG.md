@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.7](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.6...v1.1.7) (2025-10-06)
+
+
+### Bug Fixes
+
+* correct queue names in all workers to match publisher workflow ([bce23a9](https://github.com/TeamPew/pewstats-collectors/commit/bce23a927b06a8c14ce901108b7604a7480e29d8))
+* update match discovery service command to enable continuous mode ([d0bba4f](https://github.com/TeamPew/pewstats-collectors/commit/d0bba4fb82f77277115525043c9cc7b0370ba4f6))
+
 ## [1.1.6](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.5...v1.1.6) (2025-10-06)
 
 

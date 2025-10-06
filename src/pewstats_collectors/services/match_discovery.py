@@ -293,7 +293,9 @@ class MatchDiscoveryService:
 
 
 @click.command()
-@click.option("--max-players", default=None, type=int, help="Maximum players to check (default: all)")
+@click.option(
+    "--max-players", default=None, type=int, help="Maximum players to check (default: all)"
+)
 @click.option("--env-file", default=".env", help="Path to .env file (default: .env)")
 @click.option("--log-level", default="INFO", help="Log level (default: INFO)")
 def discover_matches(max_players: Optional[int], env_file: str, log_level: str):

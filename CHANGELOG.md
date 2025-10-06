@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.3.0...v1.4.0) (2025-10-06)
+
+
+### Features
+
+* add smart partial reprocessing for telemetry events ([10e5c40](https://github.com/TeamPew/pewstats-collectors/commit/10e5c4020b08d71b72b7fa98d1a79e1a6f2d06a0))
+* add smart partial reprocessing for telemetry events ([01ea788](https://github.com/TeamPew/pewstats-collectors/commit/01ea788992b9d8b043a0c75650bb5c9bcc0cc744))
+
 ## [1.3.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.2.0...v1.3.0) (2025-10-06)
 
 

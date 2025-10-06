@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.2...v1.4.3) (2025-10-06)
+
+
+### Bug Fixes
+
+* correct database connection handling in telemetry worker ([71a09dd](https://github.com/TeamPew/pewstats-collectors/commit/71a09dd607b64c13a10a61cc3dfc7183e53aff37))
+* correct database connection handling in telemetry worker ([5d4a696](https://github.com/TeamPew/pewstats-collectors/commit/5d4a69694220d4f932b6ee826700f84a462555d3))
+
 ## [1.4.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.1...v1.4.2) (2025-10-06)
 
 

@@ -363,7 +363,7 @@ if __name__ == "__main__":
     consumer = RabbitMQConsumer(
         host=os.getenv("RABBITMQ_HOST"),
         port=int(os.getenv("RABBITMQ_PORT", "5672")),
-        user=os.getenv("RABBITMQ_USER", "guest"),
+        username=os.getenv("RABBITMQ_USER", "guest"),
         password=os.getenv("RABBITMQ_PASSWORD", "guest"),
         vhost=os.getenv("RABBITMQ_VHOST", "/"),
         queue_name="telemetry_processing",

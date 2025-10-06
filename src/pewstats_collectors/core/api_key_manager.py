@@ -85,24 +85,30 @@ class APIKeyManager:
         logger.info(f"Initialized APIKeyManager with {len(self._keys)} keys")
 
     def select_key(self) -> APIKey:
-        """Select the next available API key using round-robin with smart pacing.
+        """Select the next available API key using round-robin with proactive pacing.
 
-        This method proactively paces requests to avoid hitting rate limits.
-        It will wait the minimum time needed before returning a key.
+        Strategy:
+        - Try all keys in round-robin order to find one under the limit
+        - If all keys are at limit, wait for the soonest available slot
+        - Proactively wait BEFORE making a request to avoid hitting the limit
+        - Each key limited to N requests per 60 seconds (e.g., 10 RPM)
 
         Returns:
-            The selected API key (ready to use)
+            The selected API key (ready to use immediately)
         """
-        # Try to find a key that can make a request immediately
+        # First pass: try to find a key that's immediately available
         for _ in range(len(self._keys)):
             key = self._keys[self._current_index]
             self._current_index = (self._current_index + 1) % len(self._keys)
 
-            if self.can_make_request(key):
+            # Clean old requests (older than 60 seconds)
+            self._clean_old_requests(key)
+
+            # If under limit, return this key immediately
+            if len(key.request_times) < key.rpm_limit:
                 return key
 
-        # All keys are at limit - wait for the soonest available slot
-        # Find which key will be ready soonest
+        # All keys are at limit - find which one will be ready soonest
         min_wait_time = float("inf")
         next_available_key = self._keys[0]
 
@@ -117,11 +123,9 @@ class APIKeyManager:
                     min_wait_time = wait_time
                     next_available_key = key
 
-        # Sleep until the next slot is available
+        # Wait for the soonest slot to free up
         if min_wait_time > 0:
-            logger.info(
-                f"All keys at limit. Pacing request: waiting {min_wait_time:.2f}s for next slot"
-            )
+            logger.info(f"All keys at limit. Waiting {min_wait_time:.2f}s for next slot")
             time.sleep(min_wait_time)
             self._clean_old_requests(next_available_key)
 

@@ -266,7 +266,7 @@ class TestTelemetryProcessingWorker:
             worker._read_telemetry_file("/nonexistent/file.json.gz")
 
     def test_process_message_success(
-        self, worker, mock_database_manager, tmp_path, sample_telemetry_events, mocker
+        self, worker, mock_database_manager, tmp_path, sample_telemetry_events, monkeypatch
     ):
         """Should successfully process telemetry"""
         # Create test file
@@ -275,7 +275,7 @@ class TestTelemetryProcessingWorker:
             json.dump(sample_telemetry_events, f)
 
         # Mock game_type check to return competitive
-        mocker.patch.object(worker, "_get_match_game_type", return_value="competitive")
+        monkeypatch.setattr(worker, "_get_match_game_type", lambda match_id: "competitive")
 
         mock_database_manager.insert_landings.return_value = 2
         mock_database_manager.update_match_processing_flags.return_value = True
@@ -337,7 +337,7 @@ class TestTelemetryProcessingWorker:
         assert worker.error_count == 1
 
     def test_process_message_database_error(
-        self, worker, mock_database_manager, tmp_path, sample_telemetry_events, mocker
+        self, worker, mock_database_manager, tmp_path, sample_telemetry_events, monkeypatch
     ):
         """Should handle database errors"""
         # Create test file
@@ -346,7 +346,7 @@ class TestTelemetryProcessingWorker:
             json.dump(sample_telemetry_events, f)
 
         # Mock game_type check to return competitive
-        mocker.patch.object(worker, "_get_match_game_type", return_value="competitive")
+        monkeypatch.setattr(worker, "_get_match_game_type", lambda match_id: "competitive")
 
         # Database insert fails
         mock_database_manager.insert_landings.side_effect = Exception("DB error")

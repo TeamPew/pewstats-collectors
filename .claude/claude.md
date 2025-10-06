@@ -8,25 +8,25 @@
 
 ---
 
-## Current System Analysis (R-based)
+## Legacy System Analysis (Previously R-based, Now Deprecated)
 
 ### Architecture Overview
-The R-based system consists of two main types of services:
+The legacy R-based system consisted of two main types of services (now replaced by Python implementation):
 
-**1. Workers (RabbitMQ consumers)**
+**1. Workers (RabbitMQ consumers)** - DEPRECATED
 - Match Worker - Processes match summary data
 - Stats Worker - Calculates player statistics
 - Telemetry Worker - Processes telemetry data
 - All workers consume messages from RabbitMQ queues
 
-**2. Pipelines (Scheduled jobs)**
+**2. Pipelines (Scheduled jobs)** - DEPRECATED
 Primary pipeline: `check-for-new-matches.R`
 - Discovers new matches by querying PUBG API
 - Iterates through players in database
 - Publishes discovered matches to RabbitMQ
 - Other pipelines: ranked updates, telemetry processing (landings, kills, circles, etc.)
 
-### Match Discovery Flow (Current)
+### Match Discovery Flow (Legacy R Implementation)
 1. Pipeline queries players table (limit 500 active players)
 2. Chunks players into groups of 10 (API limit)
 3. Calls `/players` endpoint with `filter[playerNames]` parameter
@@ -38,10 +38,10 @@ Primary pipeline: `check-for-new-matches.R`
    - Inserts into matches table
    - Publishes to RabbitMQ ("match.discovered" message)
 
-### Key Components
+### Key Components (Legacy R Implementation)
 
-**PUBGClient (R6 Class)**
-- Handles PUBG API communication
+**PUBGClient (R6 Class)** - DEPRECATED
+- Handled PUBG API communication
 - Rate limiting (10 RPM for most keys, 100 RPM for one key)
 - Caching layer for API responses
 - Methods:
@@ -50,14 +50,14 @@ Primary pipeline: `check-for-new-matches.R`
   - `getMatchData(matchId)` - Get detailed match data
   - `extractMatchMetadata(matchData)` - Parse match metadata
 
-**DatabaseManager (R6 Class)**
+**DatabaseManager (R6 Class)** - DEPRECATED
 - PostgreSQL connection management
 - Methods:
   - `list_players(limit)` - Get active players
   - `insert_match(metadata)` - Store match metadata
   - `update_match_status(matchId, status, error)` - Update processing status
 
-**RabbitMQClient (R6 Class)**
+**RabbitMQClient (R6 Class)** - DEPRECATED
 - Message publishing to exchanges
 - Healthcheck mechanism
 - Message types: "match.discovered", "healthcheck"
@@ -71,6 +71,38 @@ Primary pipeline: `check-for-new-matches.R`
 ```
 Players Table → Pipeline → PUBG API → Match Data → DB + RabbitMQ → Workers
 ```
+
+---
+
+## Current Python Implementation (Active)
+
+### Architecture Overview
+The Python-based collectors service has been implemented and is now the active system:
+
+**1. Match Discovery Service** (Scheduled)
+- Python-based replacement for `check-for-new-matches.R`
+- Uses `requests` library for PUBG API communication
+- Implements per-key rate limiting with round-robin selection
+- Runs every 10 minutes via scheduled job
+- Publishes to RabbitMQ for downstream processing
+
+**2. Workers** (Event-driven, scalable)
+- Match Summary Worker - Processes match roster data
+- Telemetry Download Worker - Downloads and stores telemetry files
+- Telemetry Processing Worker - Extracts all telemetry data types in one pass
+
+**3. Key Components (Python)**
+- **PUBGClient** - HTTP client using `requests`, no longer R-based
+- **APIKeyManager** - Round-robin selection with per-key rate limiting
+- **DatabaseManager** - PostgreSQL operations via `psycopg2`
+- **RabbitMQPublisher** - Message publishing via `pika`
+
+### Technology Stack
+- **HTTP**: `requests` (synchronous)
+- **Database**: `psycopg2` (PostgreSQL)
+- **Message Queue**: `pika` (RabbitMQ)
+- **Scheduling**: APScheduler or cron
+- **Container**: Docker with multi-stage builds
 
 ---
 

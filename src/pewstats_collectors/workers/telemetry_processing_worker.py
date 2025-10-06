@@ -243,44 +243,46 @@ class TelemetryProcessingWorker:
             if is_game is None or is_game < 1:
                 continue
 
-            kills.append({
-                "match_id": match_id,
-                "attack_id": event.get("attackId"),
-                "dbno_id": event.get("dbnoId"),
-                "victim_name": victim_name,
-                "victim_team_id": victim_team_id,
-                "victim_x_location": victim_location.get("x"),
-                "victim_y_location": victim_location.get("y"),
-                "victim_z_location": victim_location.get("z"),
-                "victim_in_blue_zone": victim.get("isInBlueZone", False),
-                "victim_in_vehicle": victim.get("isInVehicle", False),
-                "killed_in_zone": event.get("killedInZone"),
-                "dbno_maker_name": dbno_maker_name,
-                "dbno_maker_team_id": dbno_maker_team_id,
-                "dbno_maker_x_location": dbno_maker_location.get("x"),
-                "dbno_maker_y_location": dbno_maker_location.get("y"),
-                "dbno_maker_z_location": dbno_maker_location.get("z"),
-                "dbno_maker_zone": event.get("dbnoMakerZone"),
-                "dbno_damage_reason": dbno_damage.get("damageReason"),
-                "dbno_damage_category": dbno_damage.get("damageCauserName"),
-                "dbno_damage_causer_name": dbno_damage.get("damageCauserName"),
-                "dbno_damage_causer_distance": dbno_damage.get("distance"),
-                "finisher_name": finisher_name,
-                "finisher_team_id": finisher_team_id,
-                "finisher_x_location": finisher_location.get("x"),
-                "finisher_y_location": finisher_location.get("y"),
-                "finisher_z_location": finisher_location.get("z"),
-                "finisher_zone": event.get("finisherZone"),
-                "finisher_damage_reason": finisher_damage.get("damageReason"),
-                "finisher_damage_category": finisher_damage.get("damageTypeCategory"),
-                "finisher_damage_causer_name": finisher_damage.get("damageCauserName"),
-                "finisher_damage_causer_distance": finisher_damage.get("distance"),
-                "is_game": is_game,
-                "map_name": match_data.get("map_name"),
-                "game_type": "unknown",
-                "game_mode": match_data.get("game_mode"),
-                "match_datetime": match_data.get("match_datetime"),
-            })
+            kills.append(
+                {
+                    "match_id": match_id,
+                    "attack_id": event.get("attackId"),
+                    "dbno_id": event.get("dbnoId"),
+                    "victim_name": victim_name,
+                    "victim_team_id": victim_team_id,
+                    "victim_x_location": victim_location.get("x"),
+                    "victim_y_location": victim_location.get("y"),
+                    "victim_z_location": victim_location.get("z"),
+                    "victim_in_blue_zone": victim.get("isInBlueZone", False),
+                    "victim_in_vehicle": victim.get("isInVehicle", False),
+                    "killed_in_zone": event.get("killedInZone"),
+                    "dbno_maker_name": dbno_maker_name,
+                    "dbno_maker_team_id": dbno_maker_team_id,
+                    "dbno_maker_x_location": dbno_maker_location.get("x"),
+                    "dbno_maker_y_location": dbno_maker_location.get("y"),
+                    "dbno_maker_z_location": dbno_maker_location.get("z"),
+                    "dbno_maker_zone": event.get("dbnoMakerZone"),
+                    "dbno_damage_reason": dbno_damage.get("damageReason"),
+                    "dbno_damage_category": dbno_damage.get("damageCauserName"),
+                    "dbno_damage_causer_name": dbno_damage.get("damageCauserName"),
+                    "dbno_damage_causer_distance": dbno_damage.get("distance"),
+                    "finisher_name": finisher_name,
+                    "finisher_team_id": finisher_team_id,
+                    "finisher_x_location": finisher_location.get("x"),
+                    "finisher_y_location": finisher_location.get("y"),
+                    "finisher_z_location": finisher_location.get("z"),
+                    "finisher_zone": event.get("finisherZone"),
+                    "finisher_damage_reason": finisher_damage.get("damageReason"),
+                    "finisher_damage_category": finisher_damage.get("damageTypeCategory"),
+                    "finisher_damage_causer_name": finisher_damage.get("damageCauserName"),
+                    "finisher_damage_causer_distance": finisher_damage.get("distance"),
+                    "is_game": is_game,
+                    "map_name": match_data.get("map_name"),
+                    "game_type": "unknown",
+                    "game_mode": match_data.get("game_mode"),
+                    "match_datetime": match_data.get("match_datetime"),
+                }
+            )
 
         return kills
 
@@ -336,35 +338,37 @@ class TelemetryProcessingWorker:
 
             weapon_id = damage_info.get("damageCauserName", "Unknown")
 
-            weapon_kills.append({
-                "match_id": match_id,
-                "event_timestamp": timestamp,
-                "killer_name": killer_name,
-                "killer_team_id": killer_team_id,
-                "killer_x": killer_location.get("x"),
-                "killer_y": killer_location.get("y"),
-                "killer_z": killer_location.get("z"),
-                "victim_name": victim_name,
-                "victim_team_id": victim_team_id,
-                "victim_x": victim_location.get("x"),
-                "victim_y": victim_location.get("y"),
-                "victim_z": victim_location.get("z"),
-                "weapon_id": weapon_id,
-                "damage_type": damage_info.get("damageTypeCategory"),
-                "damage_reason": damage_info.get("damageReason"),
-                "distance": damage_info.get("distance"),
-                "is_knock_down": event.get("dbnoId") is not None,
-                "is_kill": True,
-                "map_name": match_data.get("map_name"),
-                "game_mode": match_data.get("game_mode"),
-                "match_type": "unknown",
-                "zone_phase": None,  # Would need to track from LogGameStatePeriodic
-                "time_survived": None,  # Would need to calculate
-                "is_blue_zone": victim.get("isInBlueZone", False),
-                "is_red_zone": victim.get("isInRedZone", False),
-                "killer_in_vehicle": finisher.get("isInVehicle", False),
-                "victim_in_vehicle": victim.get("isInVehicle", False),
-            })
+            weapon_kills.append(
+                {
+                    "match_id": match_id,
+                    "event_timestamp": timestamp,
+                    "killer_name": killer_name,
+                    "killer_team_id": killer_team_id,
+                    "killer_x": killer_location.get("x"),
+                    "killer_y": killer_location.get("y"),
+                    "killer_z": killer_location.get("z"),
+                    "victim_name": victim_name,
+                    "victim_team_id": victim_team_id,
+                    "victim_x": victim_location.get("x"),
+                    "victim_y": victim_location.get("y"),
+                    "victim_z": victim_location.get("z"),
+                    "weapon_id": weapon_id,
+                    "damage_type": damage_info.get("damageTypeCategory"),
+                    "damage_reason": damage_info.get("damageReason"),
+                    "distance": damage_info.get("distance"),
+                    "is_knock_down": event.get("dbnoId") is not None,
+                    "is_kill": True,
+                    "map_name": match_data.get("map_name"),
+                    "game_mode": match_data.get("game_mode"),
+                    "match_type": "unknown",
+                    "zone_phase": None,  # Would need to track from LogGameStatePeriodic
+                    "time_survived": None,  # Would need to calculate
+                    "is_blue_zone": victim.get("isInBlueZone", False),
+                    "is_red_zone": victim.get("isInRedZone", False),
+                    "killer_in_vehicle": finisher.get("isInVehicle", False),
+                    "victim_in_vehicle": victim.get("isInVehicle", False),
+                }
+            )
 
         return weapon_kills
 
@@ -423,26 +427,28 @@ class TelemetryProcessingWorker:
             if is_game is None or is_game < 1:
                 continue
 
-            damage_events.append({
-                "match_id": match_id,
-                "attacker_name": attacker_name,
-                "attacker_team_id": attacker_team_id,
-                "attacker_health": attacker_health,
-                "attacker_location_x": attacker_location.get("x"),
-                "attacker_location_y": attacker_location.get("y"),
-                "attacker_location_z": attacker_location.get("z"),
-                "victim_name": victim_name,
-                "victim_team_id": victim_team_id,
-                "victim_health": victim_health,
-                "victim_location_x": victim_location.get("x"),
-                "victim_location_y": victim_location.get("y"),
-                "victim_location_z": victim_location.get("z"),
-                "damage_type_category": damage_type,
-                "damage_reason": damage_reason,
-                "damage": damage,
-                "weapon_id": damage_causer,
-                "event_timestamp": timestamp,
-            })
+            damage_events.append(
+                {
+                    "match_id": match_id,
+                    "attacker_name": attacker_name,
+                    "attacker_team_id": attacker_team_id,
+                    "attacker_health": attacker_health,
+                    "attacker_location_x": attacker_location.get("x"),
+                    "attacker_location_y": attacker_location.get("y"),
+                    "attacker_location_z": attacker_location.get("z"),
+                    "victim_name": victim_name,
+                    "victim_team_id": victim_team_id,
+                    "victim_health": victim_health,
+                    "victim_location_x": victim_location.get("x"),
+                    "victim_location_y": victim_location.get("y"),
+                    "victim_location_z": victim_location.get("z"),
+                    "damage_type_category": damage_type,
+                    "damage_reason": damage_reason,
+                    "damage": damage,
+                    "weapon_id": damage_causer,
+                    "event_timestamp": timestamp,
+                }
+            )
 
         return damage_events
 

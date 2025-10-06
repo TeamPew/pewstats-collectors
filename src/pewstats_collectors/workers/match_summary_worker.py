@@ -102,7 +102,7 @@ class MatchSummaryWorker:
                 )
 
                 # Still need telemetry URL to forward to next stage
-                match_data = self.pubg_client.get_match_data(match_id)
+                match_data = self.pubg_client.get_match(match_id)
                 telemetry_url = self.extract_telemetry_url(match_data)
 
                 if not telemetry_url:
@@ -140,7 +140,7 @@ class MatchSummaryWorker:
             self.logger.debug(
                 f"[{self.worker_id}] Fetching match data from PUBG API for match: {match_id}"
             )
-            match_data = self.pubg_client.get_match_data(match_id)
+            match_data = self.pubg_client.get_match(match_id)
 
             # Extract telemetry URL FIRST (critical for next stage)
             telemetry_url = self.extract_telemetry_url(match_data)

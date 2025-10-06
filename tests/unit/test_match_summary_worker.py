@@ -345,7 +345,7 @@ class TestMatchSummaryWorker:
         mock_database_manager.execute_query.return_value = [{"count": 0}]  # No existing summaries
         mock_database_manager.insert_match_summaries.return_value = 2
 
-        mock_pubg_client.get_match_data.return_value = {
+        mock_pubg_client.get_match.return_value = {
             "data": {
                 "id": "match-123",
                 "attributes": {
@@ -398,7 +398,7 @@ class TestMatchSummaryWorker:
         # Summaries already exist
         mock_database_manager.execute_query.return_value = [{"count": 2}]
 
-        mock_pubg_client.get_match_data.return_value = {
+        mock_pubg_client.get_match.return_value = {
             "data": {
                 "id": "match-123",
                 "attributes": {
@@ -434,7 +434,7 @@ class TestMatchSummaryWorker:
         mock_database_manager.execute_query.return_value = [{"count": 0}]
 
         # Match data missing telemetry asset
-        mock_pubg_client.get_match_data.return_value = {
+        mock_pubg_client.get_match.return_value = {
             "data": {"id": "match-123", "attributes": {}},
             "included": [],
         }
@@ -449,7 +449,7 @@ class TestMatchSummaryWorker:
         """Should fail if no participants found"""
         mock_database_manager.execute_query.return_value = [{"count": 0}]
 
-        mock_pubg_client.get_match_data.return_value = {
+        mock_pubg_client.get_match.return_value = {
             "data": {"id": "match-123", "relationships": {"assets": {"data": [{"id": "asset-1"}]}}},
             "included": [
                 {
@@ -472,7 +472,7 @@ class TestMatchSummaryWorker:
         mock_database_manager.execute_query.return_value = [{"count": 0}]
         mock_database_manager.insert_match_summaries.return_value = 2
 
-        mock_pubg_client.get_match_data.return_value = {
+        mock_pubg_client.get_match.return_value = {
             "data": {
                 "id": "match-123",
                 "attributes": {"mapName": "Baltic_Main", "createdAt": "2024-01-15T14:30:45Z"},
@@ -509,7 +509,7 @@ class TestMatchSummaryWorker:
     def test_process_message_exception(self, worker, mock_pubg_client, mock_database_manager):
         """Should handle exceptions gracefully"""
         mock_database_manager.execute_query.return_value = [{"count": 0}]
-        mock_pubg_client.get_match_data.side_effect = Exception("API error")
+        mock_pubg_client.get_match.side_effect = Exception("API error")
 
         result = worker.process_message({"match_id": "match-123"})
 

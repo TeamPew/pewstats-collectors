@@ -125,9 +125,7 @@ class APIKeyManager:
 
         # Wait for the soonest slot to free up
         if min_wait_time > 0:
-            logger.info(
-                f"All keys at limit. Waiting {min_wait_time:.2f}s for next slot"
-            )
+            logger.info(f"All keys at limit. Waiting {min_wait_time:.2f}s for next slot")
             time.sleep(min_wait_time)
             self._clean_old_requests(next_available_key)
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.8](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.7...v1.1.8) (2025-10-06)
+
+
+### Bug Fixes
+
+* add discover-matches CLI entry point and fix Dockerfile install … ([99a79ac](https://github.com/TeamPew/pewstats-collectors/commit/99a79ac8e03a38f5f9466fb6ff2abc1d2b9bae06))
+* add discover-matches CLI entry point and fix Dockerfile install order ([994d42f](https://github.com/TeamPew/pewstats-collectors/commit/994d42f75eb93b6fb3f686602adebb124d6cf87b))
+
 ## [1.1.7](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.6...v1.1.7) (2025-10-06)
 
 

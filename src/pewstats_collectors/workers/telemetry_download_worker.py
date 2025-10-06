@@ -368,7 +368,6 @@ def is_gzipped(file_path: str) -> bool:
 
 if __name__ == "__main__":
     import os
-    from pewstats_collectors.core.database_manager import DatabaseManager
     from pewstats_collectors.core.rabbitmq_consumer import RabbitMQConsumer
 
     # Configure logging

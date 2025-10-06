@@ -67,11 +67,11 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - WORKER_ID=match-summary-worker-1
     deploy:
-      replicas: 1
+      replicas: 2
       resources:
         limits:
-          cpus: "1"
-          memory: 1G
+          cpus: "0.5"
+          memory: 512M
         reservations:
           cpus: "0.5"
           memory: 512M
@@ -113,7 +113,7 @@ services:
     volumes:
       - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry
     deploy:
-      replicas: 1
+      replicas: 4
       resources:
         limits:
           cpus: "0.5"
@@ -159,7 +159,7 @@ services:
     volumes:
       - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry:ro
     deploy:
-      replicas: 1
+      replicas: 4
       resources:
         limits:
           cpus: "1"

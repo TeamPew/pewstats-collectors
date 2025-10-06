@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.4](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.3...v1.1.4) (2025-10-06)
+
+
+### Bug Fixes
+
+* add missing _build_exchange_name method to RabbitMQConsumer ([1f0ac37](https://github.com/TeamPew/pewstats-collectors/commit/1f0ac37ab7311a6fed767b758ff7f238ab471f76))
+* add queue declaration to RabbitMQ publisher ([56bbda1](https://github.com/TeamPew/pewstats-collectors/commit/56bbda1cfd5f2bac59572b08f6cfb74e359dd00f))
+* format match_discovery.py with ruff ([ed3a66b](https://github.com/TeamPew/pewstats-collectors/commit/ed3a66b782370299e4050326ca582768f3402f79))
+* remove rate limiting from /matches endpoint ([71010d6](https://github.com/TeamPew/pewstats-collectors/commit/71010d6128bb54590d727ea81c4586949799b945))
+
 ## [1.1.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.2...v1.1.3) (2025-10-06)
 
 

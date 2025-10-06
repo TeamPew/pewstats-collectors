@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.2...v1.1.3) (2025-10-06)
+
+
+### Bug Fixes
+
+* Add queue/exchange declaration in RabbitMQConsumer ([e99abf2](https://github.com/TeamPew/pewstats-collectors/commit/e99abf2a1e3b08221376e1ac0dc5bf31385ed9c6))
+* Implement even pacing for API requests ([75a57a7](https://github.com/TeamPew/pewstats-collectors/commit/75a57a75c9c2ea1625d3b2e88c8245a4dd2c8563))
+* update unit tests to match new API key pacing behavior ([0d4e7ca](https://github.com/TeamPew/pewstats-collectors/commit/0d4e7ca9976a5644a752b8e95c97cd185089fdf6))
+
 ## [1.1.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.1...v1.1.2) (2025-10-06)
 
 

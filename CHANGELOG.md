@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.9](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.8...v1.1.9) (2025-10-06)
+
+
+### Bug Fixes
+
+* change RabbitMQ consumer to use manual acknowledgment ([bd5a583](https://github.com/TeamPew/pewstats-collectors/commit/bd5a5830328772b68ff596d34ff9d7b3391481f6))
+* change RabbitMQ consumer to use manual acknowledgment ([a620e45](https://github.com/TeamPew/pewstats-collectors/commit/a620e459d2470211136a0ac41217c1cb14772ef8))
+
 ## [1.1.8](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.7...v1.1.8) (2025-10-06)
 
 

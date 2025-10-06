@@ -622,8 +622,7 @@ class TelemetryProcessingWorker:
             game_type string (e.g., 'competitive', 'official', 'arcade', 'custom', etc.')
         """
         try:
-            conn = self.database_manager._get_connection()
-            try:
+            with self.database_manager._get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         "SELECT game_type FROM matches WHERE match_id = %s",
@@ -637,9 +636,9 @@ class TelemetryProcessingWorker:
                         )
                         return "unknown"
 
-                    return rows[0][0] or "unknown"
-            finally:
-                conn.close()
+                    game_type = rows[0][0] or "unknown"
+                    conn.commit()  # Commit to avoid rollback warning
+                    return game_type
 
         except Exception as e:
             self.logger.warning(f"[{self.worker_id}] Failed to get game_type for {match_id}: {e}")
@@ -656,8 +655,7 @@ class TelemetryProcessingWorker:
             Dictionary with processing status flags
         """
         try:
-            conn = self.database_manager._get_connection()
-            try:
+            with self.database_manager._get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
@@ -680,14 +678,14 @@ class TelemetryProcessingWorker:
                         }
 
                     row = rows[0]
-                    return {
+                    status = {
                         "landings_processed": row[0] or False,
                         "kills_processed": row[1] or False,
                         "weapons_processed": row[2] or False,
                         "damage_processed": row[3] or False,
                     }
-            finally:
-                conn.close()
+                    conn.commit()  # Commit to avoid rollback warning
+                    return status
 
         except Exception as e:
             self.logger.warning(

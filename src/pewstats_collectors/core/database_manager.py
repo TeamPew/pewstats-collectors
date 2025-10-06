@@ -676,6 +676,149 @@ class DatabaseManager:
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to insert landings: {e}")
 
+    def insert_kill_positions(self, kills: List[Dict[str, Any]]) -> int:
+        """Insert kill position events in bulk.
+
+        Args:
+            kills: List of kill position dictionaries
+
+        Returns:
+            Number of kill positions inserted
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not kills:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO kill_positions (
+                    match_id, attack_id, dbno_id, victim_name, victim_team_id,
+                    victim_x_location, victim_y_location, victim_z_location,
+                    victim_in_blue_zone, victim_in_vehicle, killed_in_zone,
+                    dbno_maker_name, dbno_maker_team_id,
+                    dbno_maker_x_location, dbno_maker_y_location, dbno_maker_z_location,
+                    dbno_maker_zone, dbno_damage_reason, dbno_damage_category,
+                    dbno_damage_causer_name, dbno_damage_causer_distance,
+                    finisher_name, finisher_team_id,
+                    finisher_x_location, finisher_y_location, finisher_z_location,
+                    finisher_zone, finisher_damage_reason, finisher_damage_category,
+                    finisher_damage_causer_name, finisher_damage_causer_distance,
+                    is_game, map_name, game_type, game_mode, match_datetime
+                ) VALUES (
+                    %(match_id)s, %(attack_id)s, %(dbno_id)s, %(victim_name)s, %(victim_team_id)s,
+                    %(victim_x_location)s, %(victim_y_location)s, %(victim_z_location)s,
+                    %(victim_in_blue_zone)s, %(victim_in_vehicle)s, %(killed_in_zone)s,
+                    %(dbno_maker_name)s, %(dbno_maker_team_id)s,
+                    %(dbno_maker_x_location)s, %(dbno_maker_y_location)s, %(dbno_maker_z_location)s,
+                    %(dbno_maker_zone)s, %(dbno_damage_reason)s, %(dbno_damage_category)s,
+                    %(dbno_damage_causer_name)s, %(dbno_damage_causer_distance)s,
+                    %(finisher_name)s, %(finisher_team_id)s,
+                    %(finisher_x_location)s, %(finisher_y_location)s, %(finisher_z_location)s,
+                    %(finisher_zone)s, %(finisher_damage_reason)s, %(finisher_damage_category)s,
+                    %(finisher_damage_causer_name)s, %(finisher_damage_causer_distance)s,
+                    %(is_game)s, %(map_name)s, %(game_type)s, %(game_mode)s, %(match_datetime)s
+                )
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, kills)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert kill positions: {e}")
+
+    def insert_weapon_kill_events(self, weapon_kills: List[Dict[str, Any]]) -> int:
+        """Insert weapon kill events in bulk.
+
+        Args:
+            weapon_kills: List of weapon kill event dictionaries
+
+        Returns:
+            Number of weapon kill events inserted
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not weapon_kills:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO weapon_kill_events (
+                    match_id, event_timestamp, killer_name, killer_team_id,
+                    killer_x, killer_y, killer_z,
+                    victim_name, victim_team_id,
+                    victim_x, victim_y, victim_z,
+                    weapon_id, damage_type, damage_reason, distance,
+                    is_knock_down, is_kill, map_name, game_mode, match_type,
+                    zone_phase, time_survived, is_blue_zone, is_red_zone,
+                    killer_in_vehicle, victim_in_vehicle
+                ) VALUES (
+                    %(match_id)s, %(event_timestamp)s, %(killer_name)s, %(killer_team_id)s,
+                    %(killer_x)s, %(killer_y)s, %(killer_z)s,
+                    %(victim_name)s, %(victim_team_id)s,
+                    %(victim_x)s, %(victim_y)s, %(victim_z)s,
+                    %(weapon_id)s, %(damage_type)s, %(damage_reason)s, %(distance)s,
+                    %(is_knock_down)s, %(is_kill)s, %(map_name)s, %(game_mode)s, %(match_type)s,
+                    %(zone_phase)s, %(time_survived)s, %(is_blue_zone)s, %(is_red_zone)s,
+                    %(killer_in_vehicle)s, %(victim_in_vehicle)s
+                )
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, weapon_kills)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert weapon kill events: {e}")
+
+    def insert_damage_events(self, damage_events: List[Dict[str, Any]]) -> int:
+        """Insert player damage events in bulk.
+
+        Args:
+            damage_events: List of damage event dictionaries
+
+        Returns:
+            Number of damage events inserted
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not damage_events:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO player_damage_events (
+                    match_id, attacker_name, attacker_team_id, attacker_health,
+                    attacker_location_x, attacker_location_y, attacker_location_z,
+                    victim_name, victim_team_id, victim_health,
+                    victim_location_x, victim_location_y, victim_location_z,
+                    damage_type_category, damage_reason, damage, weapon_id, event_timestamp
+                ) VALUES (
+                    %(match_id)s, %(attacker_name)s, %(attacker_team_id)s, %(attacker_health)s,
+                    %(attacker_location_x)s, %(attacker_location_y)s, %(attacker_location_z)s,
+                    %(victim_name)s, %(victim_team_id)s, %(victim_health)s,
+                    %(victim_location_x)s, %(victim_location_y)s, %(victim_location_z)s,
+                    %(damage_type_category)s, %(damage_reason)s, %(damage)s, %(weapon_id)s, %(event_timestamp)s
+                )
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, damage_events)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert damage events: {e}")
+
     def update_match_processing_flags(
         self,
         match_id: str,

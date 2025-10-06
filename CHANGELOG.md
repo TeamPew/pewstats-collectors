@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.5](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.4...v1.1.5) (2025-10-06)
+
+
+### Bug Fixes
+
+* remove unused storage_path parameter from telemetry processing w… ([6428ca2](https://github.com/TeamPew/pewstats-collectors/commit/6428ca2d0296f3059a829e6d775f7a2dc55b1624))
+* remove unused storage_path parameter from telemetry processing worker ([eb7f8ad](https://github.com/TeamPew/pewstats-collectors/commit/eb7f8ad30214c5989e9820ad664751ff67df131c))
+
 ## [1.1.4](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.3...v1.1.4) (2025-10-06)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.1...v1.4.2) (2025-10-06)
+
+
+### Bug Fixes
+
+* correct kill extraction validation and add game_type filtering ([75bbb26](https://github.com/TeamPew/pewstats-collectors/commit/75bbb26cec00fbc3fbaa75d86fcdf81a9b3c9a74))
+* use monkeypatch instead of mocker in telemetry tests ([dd3870c](https://github.com/TeamPew/pewstats-collectors/commit/dd3870c3e3007af7d2f8828c4ba0827264a3207c))
+
 ## [1.4.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.0...v1.4.1) (2025-10-06)
 
 

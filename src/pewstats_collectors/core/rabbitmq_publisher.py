@@ -261,6 +261,10 @@ class RabbitMQPublisher:
             # Build queue name (routing key)
             routing_key = self._build_queue_name(type, step)
 
+            # Declare queue (idempotent - safe to call multiple times)
+            # This ensures the queue exists before publishing
+            self._channel.queue_declare(queue=routing_key, durable=True)
+
             # Add metadata to message (R compatibility)
             message_with_metadata = message.copy()
             message_with_metadata["environment"] = self.environment

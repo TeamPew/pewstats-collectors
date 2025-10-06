@@ -310,12 +310,12 @@ class DatabaseManager:
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to update player: {e}")
 
-    def list_players(self, table_name: str = "players", limit: int = 200) -> List[Dict[str, Any]]:
+    def list_players(self, table_name: str = "players", limit: int = 10000) -> List[Dict[str, Any]]:
         """List all registered players.
 
         Args:
             table_name: Table name (default: "players")
-            limit: Maximum number of results (default: 200)
+            limit: Maximum number of results (default: 10000)
 
         Returns:
             List of player dictionaries

@@ -6,7 +6,7 @@ Maintains full compatibility with R HTTP polling-based BaseWorker while using na
 Key features:
 - Event-driven message consumption (replaces HTTP polling)
 - Callback pattern matching R BaseWorker
-- Auto-acknowledgment mode (R compatibility)
+- Manual acknowledgment mode (messages only removed on successful processing)
 - Batch processing support
 - Prefetch control for concurrency
 - Graceful shutdown
@@ -165,7 +165,7 @@ class RabbitMQConsumer:
         type: str,
         step: str,
         callback: Callable[[Dict[str, Any]], Dict[str, Any]],
-        auto_ack: bool = True,
+        auto_ack: bool = False,
     ) -> None:
         """Start consuming messages from queue (daemon mode).
 
@@ -180,7 +180,7 @@ class RabbitMQConsumer:
             type: Message type (match, stats, telemetry)
             step: Processing step (discovered, processing, completed, failed)
             callback: Function to process each message
-            auto_ack: Auto-acknowledge messages (default: True for R compatibility)
+            auto_ack: Auto-acknowledge messages (default: False for message safety)
 
         Raises:
             RabbitMQConsumerError: If consumption fails
@@ -235,7 +235,7 @@ class RabbitMQConsumer:
         step: str,
         callback: Callable[[Dict[str, Any]], Dict[str, Any]],
         max_messages: int = 10,
-        auto_ack: bool = True,
+        auto_ack: bool = False,
     ) -> int:
         """Consume a batch of messages then stop (batch mode).
 
@@ -247,7 +247,7 @@ class RabbitMQConsumer:
             step: Processing step
             callback: Function to process each message
             max_messages: Maximum number of messages to process
-            auto_ack: Auto-acknowledge messages
+            auto_ack: Auto-acknowledge messages (default: False for message safety)
 
         Returns:
             Number of messages successfully processed

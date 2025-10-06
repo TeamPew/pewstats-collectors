@@ -27,15 +27,15 @@ from pewstats_collectors.workers.telemetry_processing_worker import TelemetryPro
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
+
 def main():
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("END-TO-END PIPELINE TEST")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     # Database connection
     logger.info("Connecting to database...")
@@ -44,7 +44,7 @@ def main():
         port=5432,
         dbname="pewstats_production",
         user="pewstats_prod_user",
-        password="test_password_123"
+        password="test_password_123",
     )
 
     # Find a couple of matches with existing telemetry data
@@ -62,9 +62,9 @@ def main():
 
     for match_dir in match_dirs:
         match_id = match_dir.name.replace("matchID=", "")
-        logger.info(f"\n{'='*60}")
+        logger.info(f"\n{'=' * 60}")
         logger.info(f"Testing match: {match_id}")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
 
         # Check if match already in database
         query = "SELECT match_id, status FROM matches WHERE match_id = %s"
@@ -84,7 +84,7 @@ def main():
             "map_name": "Erangel",  # Default for testing
             "game_mode": "squad-fpp",
             "match_datetime": "2025-10-01T12:00:00Z",
-            "game_type": "unknown"
+            "game_type": "unknown",
         }
 
         try:
@@ -104,10 +104,7 @@ def main():
         # Test 4: Telemetry Processing Worker
         logger.info("\n[4/4] Testing Telemetry Processing Worker...")
 
-        worker = TelemetryProcessingWorker(
-            database_manager=db_manager,
-            worker_id="test-worker-001"
-        )
+        worker = TelemetryProcessingWorker(database_manager=db_manager, worker_id="test-worker-001")
 
         # Build message as if from telemetry download worker
         file_path = match_dir / "raw.json.gz"
@@ -121,7 +118,7 @@ def main():
             "file_path": str(file_path),
             "map_name": "Erangel",
             "game_mode": "squad-fpp",
-            "match_datetime": "2025-10-01T12:00:00Z"
+            "match_datetime": "2025-10-01T12:00:00Z",
         }
 
         try:
@@ -143,7 +140,9 @@ def main():
 
                 # Get worker stats
                 stats = worker.get_stats()
-                logger.info(f"   - Worker stats: {stats['processed_count']} processed, {stats['error_count']} errors")
+                logger.info(
+                    f"   - Worker stats: {stats['processed_count']} processed, {stats['error_count']} errors"
+                )
 
             else:
                 logger.error(f"❌ Telemetry processing failed: {result.get('error')}")
@@ -151,12 +150,13 @@ def main():
         except Exception as e:
             logger.error(f"❌ Exception during telemetry processing: {e}", exc_info=True)
 
-    logger.info(f"\n{'='*60}")
+    logger.info(f"\n{'=' * 60}")
     logger.info("END-TO-END PIPELINE TEST COMPLETE")
-    logger.info(f"{'='*60}")
+    logger.info(f"{'=' * 60}")
 
     db_manager.close()
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

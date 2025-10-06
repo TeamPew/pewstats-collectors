@@ -2,7 +2,7 @@ services:
   # Match Discovery Service - Discovers new matches for tracked players
   match-discovery:
     image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
-    command: ["python3", "-m", "pewstats_collectors.services.match_discovery"]
+    command: ["discover-matches", "--continuous", "--interval", "600"]
     environment:
       # Database configuration
       - POSTGRES_HOST=${POSTGRES_HOST}

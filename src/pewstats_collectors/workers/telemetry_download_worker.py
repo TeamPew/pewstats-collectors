@@ -398,4 +398,4 @@ if __name__ == "__main__":
 
     # Start consuming
     print(f"Starting telemetry download worker: {worker.worker_id}")
-    consumer.consume_messages("match", "telemetry_downloads", worker.process_message)
+    consumer.consume_messages("match", "telemetry", worker.process_message)

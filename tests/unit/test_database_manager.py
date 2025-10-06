@@ -205,8 +205,8 @@ class TestPlayerManagement:
 
         db.list_players()
 
-        # Should use default limit of 200 (R compatibility)
-        assert cursor.execute.call_args[0][1] == (200,)
+        # Should use default limit of 10000 (changed to support all players)
+        assert cursor.execute.call_args[0][1] == (10000,)
 
 
 # ============================================================================

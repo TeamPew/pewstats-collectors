@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.4](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.3...v1.4.4) (2025-10-06)
+
+
+### Bug Fixes
+
+* use context manager correctly with explicit commit for read queries ([75d9adc](https://github.com/TeamPew/pewstats-collectors/commit/75d9adce27607053441af6b262be04bc19ce4c6a))
+* use context manager correctly with explicit commit for read queries ([0e6e384](https://github.com/TeamPew/pewstats-collectors/commit/0e6e384b2ad736ea527882a0b006dab7a9ce5d4b))
+
 ## [1.4.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.2...v1.4.3) (2025-10-06)
 
 

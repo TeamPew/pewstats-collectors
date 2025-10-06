@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.2.0...v1.3.0) (2025-10-06)
+
+
+### Features
+
+* add kill, weapon, and damage event extraction to telemetry processing ([c057850](https://github.com/TeamPew/pewstats-collectors/commit/c057850e2b1c0268079296514dce26a7c07015ae))
+
+
+### Bug Fixes
+
+* format telemetry_processing_worker.py with ruff ([6a1892a](https://github.com/TeamPew/pewstats-collectors/commit/6a1892a873d8e0aa666140f5e1a990ad8aa60c15))
+
 ## [1.2.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.10...v1.2.0) (2025-10-06)
 
 

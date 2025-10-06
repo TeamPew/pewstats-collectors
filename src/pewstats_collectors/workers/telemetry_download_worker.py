@@ -368,7 +368,6 @@ def is_gzipped(file_path: str) -> bool:
 
 if __name__ == "__main__":
     import os
-    from pewstats_collectors.core.database_manager import DatabaseManager
     from pewstats_collectors.core.rabbitmq_consumer import RabbitMQConsumer
 
     # Configure logging
@@ -377,19 +376,13 @@ if __name__ == "__main__":
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Initialize database manager
-    db_manager = DatabaseManager(
-        host=os.getenv("POSTGRES_HOST"),
-        port=int(os.getenv("POSTGRES_PORT", "5432")),
-        dbname=os.getenv("POSTGRES_DB"),
-        user=os.getenv("POSTGRES_USER"),
-        password=os.getenv("POSTGRES_PASSWORD"),
-    )
+    # Initialize RabbitMQ publisher
+    rabbitmq_publisher = RabbitMQPublisher()
 
     # Initialize worker
     worker = TelemetryDownloadWorker(
-        database_manager=db_manager,
-        storage_path=os.getenv("TELEMETRY_STORAGE_PATH", "/opt/pewstats-platform/data/telemetry"),
+        rabbitmq_publisher=rabbitmq_publisher,
+        data_path=os.getenv("TELEMETRY_STORAGE_PATH", "/opt/pewstats-platform/data/telemetry"),
         worker_id=os.getenv("WORKER_ID", "telemetry-download-worker-1"),
     )
 

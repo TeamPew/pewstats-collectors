@@ -298,7 +298,11 @@ class MatchDiscoveryService:
 )
 @click.option("--env-file", default=".env", help="Path to .env file (default: .env)")
 @click.option("--log-level", default="INFO", help="Log level (default: INFO)")
-def discover_matches(max_players: Optional[int], env_file: str, log_level: str):
+@click.option("--continuous", is_flag=True, default=False, help="Run continuously at intervals")
+@click.option("--interval", default=600, type=int, help="Interval in seconds (default: 600)")
+def discover_matches(
+    max_players: Optional[int], env_file: str, log_level: str, continuous: bool, interval: int
+):
     """Discover new PUBG matches for tracked players.
 
     This service replicates the R check-for-new-matches.R pipeline:
@@ -320,94 +324,105 @@ def discover_matches(max_players: Optional[int], env_file: str, log_level: str):
     )
     logger = logging.getLogger(__name__)
 
-    try:
-        # Validate required environment variables
-        required_vars = [
-            "POSTGRES_HOST",
-            "POSTGRES_DB",
-            "POSTGRES_USER",
-            "POSTGRES_PASSWORD",
-            "PUBG_API_KEYS",
-            "RABBITMQ_HOST",
-            "RABBITMQ_USER",
-            "RABBITMQ_PASSWORD",
-        ]
-
-        missing_vars = [var for var in required_vars if not os.getenv(var)]
-        if missing_vars:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
-        logger.info("Initializing match discovery service...")
-
-        # Initialize database
-        with DatabaseManager(
-            host=os.getenv("POSTGRES_HOST"),
-            port=int(os.getenv("POSTGRES_PORT", "5432")),
-            dbname=os.getenv("POSTGRES_DB"),
-            user=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD"),
-        ) as db:
-            # Initialize API key manager
-            # Parse comma-separated API keys
-            api_keys_str = os.getenv("PUBG_API_KEYS", "")
-            api_keys = [
-                {"key": key.strip(), "rpm": 10} for key in api_keys_str.split(",") if key.strip()
+    def run_discovery():
+        """Execute a single discovery run."""
+        try:
+            # Validate required environment variables
+            required_vars = [
+                "POSTGRES_HOST",
+                "POSTGRES_DB",
+                "POSTGRES_USER",
+                "POSTGRES_PASSWORD",
+                "PUBG_API_KEYS",
+                "RABBITMQ_HOST",
+                "RABBITMQ_USER",
+                "RABBITMQ_PASSWORD",
             ]
-            if not api_keys:
-                raise ValueError("PUBG_API_KEYS is set but contains no valid keys")
-            api_key_manager = APIKeyManager(api_keys)
 
-            # Initialize PUBG client
-            pubg_client = PUBGClient(
-                api_key_manager=api_key_manager, get_existing_match_ids=db.get_all_match_ids
-            )
+            missing_vars = [var for var in required_vars if not os.getenv(var)]
+            if missing_vars:
+                raise ValueError(
+                    f"Missing required environment variables: {', '.join(missing_vars)}"
+                )
 
-            # Initialize RabbitMQ publisher
-            rabbitmq_publisher = RabbitMQPublisher()
+            logger.info("Initializing match discovery service...")
 
-            # Create and run service
-            service = MatchDiscoveryService(
-                database=db,
-                pubg_client=pubg_client,
-                rabbitmq_publisher=rabbitmq_publisher,
-                logger=logger,
-            )
+            # Initialize database
+            with DatabaseManager(
+                host=os.getenv("POSTGRES_HOST"),
+                port=int(os.getenv("POSTGRES_PORT", "5432")),
+                dbname=os.getenv("POSTGRES_DB"),
+                user=os.getenv("POSTGRES_USER"),
+                password=os.getenv("POSTGRES_PASSWORD"),
+            ) as db:
+                # Initialize API key manager
+                # Parse comma-separated API keys
+                api_keys_str = os.getenv("PUBG_API_KEYS", "")
+                api_keys = [
+                    {"key": key.strip(), "rpm": 10}
+                    for key in api_keys_str.split(",")
+                    if key.strip()
+                ]
+                if not api_keys:
+                    raise ValueError("PUBG_API_KEYS is set but contains no valid keys")
+                api_key_manager = APIKeyManager(api_keys)
 
-            result = service.run(max_players=max_players)
+                # Initialize PUBG client
+                pubg_client = PUBGClient(
+                    api_key_manager=api_key_manager, get_existing_match_ids=db.get_all_match_ids
+                )
 
-            # Output summary
-            click.echo("\n" + "=" * 60)
-            click.echo("Match Discovery Complete")
-            click.echo("=" * 60)
-            click.echo(f"  Total matches found: {result['total_matches']}")
-            click.echo(f"  Successfully processed: {result['processed']}")
-            click.echo(f"  Failed: {result['failed']}")
-            click.echo(f"  Queued for processing: {result['queued']}")
-            click.echo(f"  Timestamp: {result['timestamp']}")
-            click.echo("=" * 60 + "\n")
+                # Initialize RabbitMQ publisher
+                rabbitmq_publisher = RabbitMQPublisher()
 
-            # Exit with appropriate code
-            if result["failed"] > 0:
-                click.echo(f"Warning: {result['failed']} matches failed to process", err=True)
+                # Create and run service
+                service = MatchDiscoveryService(
+                    database=db,
+                    pubg_client=pubg_client,
+                    rabbitmq_publisher=rabbitmq_publisher,
+                    logger=logger,
+                )
 
-    except Exception as e:
-        logger.error(f"Match discovery failed: {e}")
-        click.echo(f"Error: {e}", err=True)
-        raise click.Abort()
+                result = service.run(max_players=max_players)
+
+                # Output summary
+                click.echo("\n" + "=" * 60)
+                click.echo("Match Discovery Complete")
+                click.echo("=" * 60)
+                click.echo(f"  Total matches found: {result['total_matches']}")
+                click.echo(f"  Successfully processed: {result['processed']}")
+                click.echo(f"  Failed: {result['failed']}")
+                click.echo(f"  Queued for processing: {result['queued']}")
+                click.echo(f"  Timestamp: {result['timestamp']}")
+                click.echo("=" * 60 + "\n")
+
+                # Exit with appropriate code
+                if result["failed"] > 0:
+                    click.echo(f"Warning: {result['failed']} matches failed to process", err=True)
+
+        except Exception as e:
+            logger.error(f"Match discovery failed: {e}")
+            click.echo(f"Error: {e}", err=True)
+            if not continuous:
+                raise click.Abort()
+
+    # Run continuously or once
+    if continuous:
+        import time
+
+        logger.info(f"Starting match discovery service in continuous mode (interval: {interval}s)")
+
+        while True:
+            try:
+                run_discovery()
+            except Exception as e:
+                logger.error(f"Match discovery run failed: {e}")
+
+            logger.info(f"Sleeping for {interval} seconds...")
+            time.sleep(interval)
+    else:
+        run_discovery()
 
 
 if __name__ == "__main__":
-    import time
-
-    # Run continuously with 10 minute interval
-    interval = int(os.getenv("DISCOVERY_INTERVAL", "600"))  # Default 10 minutes
-    logger.info(f"Starting match discovery service (interval: {interval}s)")
-
-    while True:
-        try:
-            discover_matches()
-        except Exception as e:
-            logger.error(f"Match discovery run failed: {e}")
-
-        logger.info(f"Sleeping for {interval} seconds...")
-        time.sleep(interval)
+    discover_matches()

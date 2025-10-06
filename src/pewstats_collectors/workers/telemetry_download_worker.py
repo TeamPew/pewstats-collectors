@@ -400,11 +400,9 @@ if __name__ == "__main__":
         username=os.getenv("RABBITMQ_USER", "guest"),
         password=os.getenv("RABBITMQ_PASSWORD", "guest"),
         vhost=os.getenv("RABBITMQ_VHOST", "/"),
-        queue_name="telemetry_downloads",
-        callback=worker.process_message,
         environment=os.getenv("ENVIRONMENT", "development"),
     )
 
     # Start consuming
     print(f"Starting telemetry download worker: {worker.worker_id}")
-    consumer.start_consuming()
+    consumer.consume_messages("match", "telemetry_downloads", worker.process_message)

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.10](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.9...v1.1.10) (2025-10-06)
+
+
+### Bug Fixes
+
+* correct PUBGClient method name in match summary worker ([fc1a031](https://github.com/TeamPew/pewstats-collectors/commit/fc1a0317be7eec0b6e1a3217d0a465bdae31a253))
+* update tests to use correct PUBGClient method name ([9902e2a](https://github.com/TeamPew/pewstats-collectors/commit/9902e2ae5d4445c1f79f2a04bca28d7583f62ca1))
+
 ## [1.1.9](https://github.com/TeamPew/pewstats-collectors/compare/v1.1.8...v1.1.9) (2025-10-06)
 
 

@@ -16,6 +16,9 @@ dependencies = [
     "tenacity>=8.2.0",
 ]
 
+[project.scripts]
+discover-matches = "pewstats_collectors.services.match_discovery:discover_matches"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",

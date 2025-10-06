@@ -8,15 +8,13 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copy requirements and source code
 COPY pyproject.toml .
-
-# Install dependencies from pyproject.toml
-RUN pip install --no-cache-dir -e .
-
-# Copy application code
 COPY src/ ./src/
 COPY scripts/ ./scripts/
+
+# Install package with dependencies (creates CLI entry points)
+RUN pip install --no-cache-dir -e .
 
 # Create user with matching host UID/GID for volume permissions
 ARG USER_ID=1001

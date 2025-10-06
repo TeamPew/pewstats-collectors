@@ -619,10 +619,11 @@ class TelemetryProcessingWorker:
             match_id: Match ID
 
         Returns:
-            game_type string (e.g., 'competitive', 'official', 'arcade', 'custom', etc.)
+            game_type string (e.g., 'competitive', 'official', 'arcade', 'custom', etc.')
         """
         try:
-            with self.database_manager._get_connection() as conn:
+            conn = self.database_manager._get_connection()
+            try:
                 with conn.cursor() as cur:
                     cur.execute(
                         "SELECT game_type FROM matches WHERE match_id = %s",
@@ -637,6 +638,8 @@ class TelemetryProcessingWorker:
                         return "unknown"
 
                     return rows[0][0] or "unknown"
+            finally:
+                conn.close()
 
         except Exception as e:
             self.logger.warning(f"[{self.worker_id}] Failed to get game_type for {match_id}: {e}")
@@ -653,7 +656,8 @@ class TelemetryProcessingWorker:
             Dictionary with processing status flags
         """
         try:
-            with self.database_manager._get_connection() as conn:
+            conn = self.database_manager._get_connection()
+            try:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
@@ -682,6 +686,8 @@ class TelemetryProcessingWorker:
                         "weapons_processed": row[2] or False,
                         "damage_processed": row[3] or False,
                     }
+            finally:
+                conn.close()
 
         except Exception as e:
             self.logger.warning(

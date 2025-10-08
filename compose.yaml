@@ -113,7 +113,7 @@ services:
     volumes:
       - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry
     deploy:
-      replicas: 4
+      replicas: 2
       resources:
         limits:
           cpus: "0.5"
@@ -159,7 +159,7 @@ services:
     volumes:
       - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry:ro
     deploy:
-      replicas: 12
+      replicas: 2
       resources:
         limits:
           cpus: "1"

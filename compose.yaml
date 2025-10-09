@@ -3,6 +3,8 @@ services:
   match-discovery:
     image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: ["discover-matches", "--continuous", "--interval", "600"]
+    ports:
+      - "${MATCH_DISCOVERY_METRICS_PORT:-9090}:9090"  # Prometheus metrics
     environment:
       # Database configuration
       - POSTGRES_HOST=${POSTGRES_HOST}
@@ -47,6 +49,8 @@ services:
   match-summary-worker:
     image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: ["python3", "-m", "pewstats_collectors.workers.match_summary_worker"]
+    ports:
+      - "${MATCH_SUMMARY_METRICS_PORT:-9091}:9091"  # Prometheus metrics
     environment:
       # Database configuration
       - POSTGRES_HOST=${POSTGRES_HOST}
@@ -91,6 +95,8 @@ services:
   telemetry-download-worker:
     image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: ["python3", "-m", "pewstats_collectors.workers.telemetry_download_worker"]
+    ports:
+      - "${TELEMETRY_DOWNLOAD_METRICS_PORT:-9092}:9092"  # Prometheus metrics
     environment:
       # Database configuration
       - POSTGRES_HOST=${POSTGRES_HOST}
@@ -137,6 +143,8 @@ services:
   telemetry-processing-worker:
     image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: ["python3", "-m", "pewstats_collectors.workers.telemetry_processing_worker"]
+    ports:
+      - "${TELEMETRY_PROCESSING_METRICS_PORT:-9093}:9093"  # Prometheus metrics
     environment:
       # Database configuration
       - POSTGRES_HOST=${POSTGRES_HOST}

@@ -16,6 +16,15 @@ from typing import Any, Dict, Optional
 import requests
 
 from ..core.rabbitmq_publisher import RabbitMQPublisher
+from ..metrics import (
+    TELEMETRY_DOWNLOADS,
+    TELEMETRY_DOWNLOAD_DURATION,
+    TELEMETRY_FILE_SIZE,
+    QUEUE_MESSAGES_PROCESSED,
+    QUEUE_PROCESSING_DURATION,
+    WORKER_ERRORS,
+    start_metrics_server,
+)
 
 
 class TelemetryDownloadWorker:
@@ -34,6 +43,7 @@ class TelemetryDownloadWorker:
         worker_id: str,
         data_path: str = "/opt/pewstats-platform/data/telemetry",
         logger: Optional[logging.Logger] = None,
+        metrics_port: int = 9092,
     ):
         """
         Initialize telemetry download worker.
@@ -43,6 +53,7 @@ class TelemetryDownloadWorker:
             worker_id: Unique worker identifier
             data_path: Path to store telemetry files
             logger: Optional logger instance
+            metrics_port: Port to expose Prometheus metrics on (default: 9092)
         """
         self.rabbitmq_publisher = rabbitmq_publisher
         self.worker_id = worker_id
@@ -55,6 +66,9 @@ class TelemetryDownloadWorker:
 
         # Create data directory
         os.makedirs(self.data_path, exist_ok=True)
+
+        # Start metrics server
+        start_metrics_server(port=metrics_port, worker_name=f"telemetry-download-{worker_id}")
 
         self.logger.info(
             f"[{self.worker_id}] Telemetry download worker initialized with data path: {self.data_path}"
@@ -70,6 +84,7 @@ class TelemetryDownloadWorker:
         Returns:
             Dict with success status: {"success": bool, "error": str}
         """
+        start_time = time.time()
         match_id = data.get("match_id")
         telemetry_url = data.get("telemetry_url")
 
@@ -77,12 +92,14 @@ class TelemetryDownloadWorker:
             error_msg = "Message missing match_id field"
             self.logger.error(f"[{self.worker_id}] {error_msg}")
             self.error_count += 1
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='failed').inc()
             return {"success": False, "error": error_msg}
 
         if not telemetry_url:
             error_msg = f"Message missing telemetry_url field for match {match_id}"
             self.logger.error(f"[{self.worker_id}] {error_msg}")
             self.error_count += 1
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='failed').inc()
             return {"success": False, "error": error_msg}
 
         self.logger.info(f"[{self.worker_id}] Processing telemetry download for match: {match_id}")
@@ -107,23 +124,35 @@ class TelemetryDownloadWorker:
 
                 if publish_success:
                     self.processed_count += 1
+                    TELEMETRY_DOWNLOADS.labels(status='cached').inc()
+                    TELEMETRY_FILE_SIZE.observe(os.path.getsize(file_path))
+                    QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='success').inc()
+                    QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_download').observe(time.time() - start_time)
                     return {"success": True, "reason": "already_exists"}
                 else:
                     error_msg = "Failed to publish to processing queue"
                     self.logger.error(f"[{self.worker_id}] {error_msg}")
                     self.error_count += 1
+                    TELEMETRY_DOWNLOADS.labels(status='failed').inc()
+                    QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='failed').inc()
+                    WORKER_ERRORS.labels(worker_type='telemetry_download', error_type='PublishError').inc()
                     return {"success": False, "error": error_msg}
 
             # Download telemetry
-            start_time = time.time()
+            download_start = time.time()
             download_result = self.download_telemetry(telemetry_url, match_id)
-            elapsed = time.time() - start_time
+            download_elapsed = time.time() - download_start
 
             file_size_mb = download_result["size_mb"]
+            file_size_bytes = int(file_size_mb * 1024 * 1024)
             self.logger.info(
                 f"[{self.worker_id}] Downloaded telemetry for {match_id}: "
-                f"{file_size_mb:.2f} MB in {elapsed:.2f}s"
+                f"{file_size_mb:.2f} MB in {download_elapsed:.2f}s"
             )
+
+            # Record download metrics
+            TELEMETRY_DOWNLOAD_DURATION.observe(download_elapsed)
+            TELEMETRY_FILE_SIZE.observe(file_size_bytes)
 
             # Publish to processing queue
             file_path = download_result["file_path"]
@@ -139,16 +168,30 @@ class TelemetryDownloadWorker:
 
             # Success!
             self.processed_count += 1
+            total_duration = time.time() - start_time
             self.logger.info(
                 f"[{self.worker_id}] ✅ Successfully downloaded and queued telemetry for {match_id}"
             )
 
+            # Record success metrics
+            TELEMETRY_DOWNLOADS.labels(status='success').inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='success').inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_download').observe(total_duration)
+
             return {"success": True}
 
         except Exception as e:
+            total_duration = time.time() - start_time
             error_msg = f"Telemetry download failed: {str(e)}"
             self.logger.error(f"[{self.worker_id}] Match {match_id}: {error_msg}", exc_info=True)
             self.error_count += 1
+
+            # Record error metrics
+            TELEMETRY_DOWNLOADS.labels(status='failed').inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='failed').inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_download').observe(total_duration)
+            WORKER_ERRORS.labels(worker_type='telemetry_download', error_type=type(e).__name__).inc()
+
             return {"success": False, "error": str(e)}
 
     def download_telemetry(

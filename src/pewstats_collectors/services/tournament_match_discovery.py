@@ -328,9 +328,7 @@ class TournamentMatchDiscoveryService:
                 if inserted_count > 0:
                     processed_count += 1
                     participants_stored += inserted_count
-                    self.logger.info(
-                        f"Stored match {match_id} with {inserted_count} participants"
-                    )
+                    self.logger.info(f"Stored match {match_id} with {inserted_count} participants")
 
                     # Match players to teams
                     matched_count = self._match_players_to_teams(match_id)
@@ -533,7 +531,10 @@ class TournamentMatchDiscoveryService:
 
     def _reset_adaptive_sampling(self):
         """Reset adaptive sampling state after successful discovery."""
-        if self.failed_discovery_count > 0 or self.current_sample_size != self.sample_size_per_lobby:
+        if (
+            self.failed_discovery_count > 0
+            or self.current_sample_size != self.sample_size_per_lobby
+        ):
             self.logger.info("Matches found, resetting adaptive sampling to baseline")
 
         self.failed_discovery_count = 0
@@ -564,9 +565,7 @@ class TournamentMatchDiscoveryService:
 @click.option("--log-level", default="INFO", help="Log level")
 @click.option("--continuous", is_flag=True, default=False, help="Run continuously")
 @click.option("--interval", default=60, type=int, help="Interval in seconds (default: 60)")
-@click.option(
-    "--sample-size", default=6, type=int, help="Players to sample per lobby (default: 6)"
-)
+@click.option("--sample-size", default=6, type=int, help="Players to sample per lobby (default: 6)")
 @click.option(
     "--match-type",
     default="competitive",
@@ -645,9 +644,7 @@ def discover_tournament_matches(
             # Check schedule
             if not schedule.is_active():
                 wait_seconds = schedule.time_until_next_active()
-                logger.info(
-                    f"Outside tournament schedule. Next active period in {wait_seconds}s"
-                )
+                logger.info(f"Outside tournament schedule. Next active period in {wait_seconds}s")
                 return
 
             # Validate environment
@@ -678,7 +675,9 @@ def discover_tournament_matches(
                 # Initialize API key manager
                 api_keys_str = os.getenv("PUBG_API_KEYS", "")
                 api_keys = [
-                    {"key": key.strip(), "rpm": 10} for key in api_keys_str.split(",") if key.strip()
+                    {"key": key.strip(), "rpm": 10}
+                    for key in api_keys_str.split(",")
+                    if key.strip()
                 ]
                 if not api_keys:
                     raise ValueError("PUBG_API_KEYS is set but contains no valid keys")

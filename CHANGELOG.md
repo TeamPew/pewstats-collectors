@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.5.0...v1.6.0) (2025-10-09)
+
+
+### Features
+
+* add Prometheus metrics instrumentation to collectors ([d22c18e](https://github.com/TeamPew/pewstats-collectors/commit/d22c18e7bbeedbab2c8724b155b15cd9c9fea3b8))
+
+
+### Bug Fixes
+
+* add prometheus-client to pyproject.toml dependencies ([3f13542](https://github.com/TeamPew/pewstats-collectors/commit/3f13542174a28fa540106e1ec644980e2eb80693))
+* deduplicate Prometheus metrics definitions ([db3010f](https://github.com/TeamPew/pewstats-collectors/commit/db3010f71ddad19ad38019778db55a82667432b4))
+* remove unused imports and variables ([7853676](https://github.com/TeamPew/pewstats-collectors/commit/785367632b0ad5262a068cb3d904671bfd6cc102))
+
 ## [1.5.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.6...v1.5.0) (2025-10-09)
 
 

@@ -888,3 +888,40 @@ class DatabaseManager:
 
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to update match processing flags: {e}")
+
+    # ========================================================================
+    # Tournament Management (for tournament match discovery)
+    # ========================================================================
+
+    def execute_query(
+        self, query: str, params: tuple = (), fetch: bool = True
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Execute a raw SQL query with parameters.
+
+        Helper method for custom tournament queries.
+
+        Args:
+            query: SQL query string
+            params: Query parameters tuple
+            fetch: Whether to fetch results (False for INSERT/UPDATE)
+
+        Returns:
+            List of result dictionaries, or None if fetch=False
+
+        Raises:
+            DatabaseError: If query fails
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+
+                    if fetch:
+                        results = cur.fetchall()
+                        return results
+                    else:
+                        conn.commit()
+                        return None
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to execute query: {e}")

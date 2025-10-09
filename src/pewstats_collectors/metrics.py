@@ -13,10 +13,33 @@ MATCH_DISCOVERY_REQUESTS = Counter(
     ['status']  # success, failed
 )
 
+MATCH_DISCOVERY_RUNS = Counter(
+    'match_discovery_runs_total',
+    'Total match discovery pipeline runs',
+    ['status']  # success, failed
+)
+
+MATCH_DISCOVERY_DURATION = Histogram(
+    'match_discovery_duration_seconds',
+    'Time to complete match discovery pipeline',
+    buckets=[10, 30, 60, 120, 300, 600, 1200, 1800]
+)
+
 MATCHES_DISCOVERED = Counter(
     'matches_discovered_total',
     'Total matches discovered',
-    ['status']  # new, existing
+    ['status']  # new, existing, failed
+)
+
+MATCHES_QUEUED = Counter(
+    'matches_queued_total',
+    'Total matches queued for processing',
+    ['status']  # success, failed
+)
+
+ACTIVE_PLAYERS_COUNT = Gauge(
+    'active_players_count',
+    'Number of active players being tracked'
 )
 
 # Match summary worker metrics

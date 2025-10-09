@@ -18,30 +18,15 @@ from ..metrics import (
     WORKER_ERRORS,
     DATABASE_OPERATIONS,
     DATABASE_OPERATION_DURATION,
+    TELEMETRY_PROCESSED,
+    TELEMETRY_PROCESSING_DURATION,
+    TELEMETRY_EVENTS_EXTRACTED,
     start_metrics_server,
 )
 
-# Telemetry processing specific metrics
-from prometheus_client import Counter, Histogram
+from prometheus_client import Histogram
 
-TELEMETRY_PROCESSED = Counter(
-    'telemetry_files_processed_total',
-    'Total telemetry files processed',
-    ['status']  # success, failed, skipped
-)
-
-TELEMETRY_PROCESSING_DURATION = Histogram(
-    'telemetry_processing_duration_seconds',
-    'Time to process a telemetry file',
-    buckets=[1, 5, 10, 30, 60, 120, 300, 600]
-)
-
-TELEMETRY_EVENTS_EXTRACTED = Counter(
-    'telemetry_events_extracted_total',
-    'Total events extracted from telemetry by type',
-    ['event_type']  # landings, kills, weapon_kills, damage
-)
-
+# Telemetry processing specific metric (not in shared metrics.py)
 TELEMETRY_FILE_READ_DURATION = Histogram(
     'telemetry_file_read_duration_seconds',
     'Time to read and parse telemetry file',

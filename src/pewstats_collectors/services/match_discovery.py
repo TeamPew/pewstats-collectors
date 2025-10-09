@@ -29,41 +29,14 @@ from pewstats_collectors.core.rabbitmq_publisher import RabbitMQPublisher
 # Import metrics
 from pewstats_collectors.metrics import (
     MATCH_DISCOVERY_REQUESTS,
+    MATCH_DISCOVERY_RUNS,
+    MATCH_DISCOVERY_DURATION,
+    MATCHES_DISCOVERED,
+    MATCHES_QUEUED,
+    ACTIVE_PLAYERS_COUNT,
     WORKER_ERRORS,
     DATABASE_OPERATIONS,
     start_metrics_server,
-)
-
-from prometheus_client import Counter, Histogram, Gauge
-
-# Match discovery specific metrics
-MATCH_DISCOVERY_RUNS = Counter(
-    'match_discovery_runs_total',
-    'Total match discovery pipeline runs',
-    ['status']  # success, failed
-)
-
-MATCH_DISCOVERY_DURATION = Histogram(
-    'match_discovery_duration_seconds',
-    'Time to complete match discovery pipeline',
-    buckets=[10, 30, 60, 120, 300, 600, 1200, 1800]
-)
-
-MATCHES_DISCOVERED = Counter(
-    'matches_discovered_total',
-    'Total matches discovered',
-    ['status']  # new, existing, failed
-)
-
-MATCHES_QUEUED = Counter(
-    'matches_queued_total',
-    'Total matches queued for processing',
-    ['status']  # success, failed
-)
-
-ACTIVE_PLAYERS_COUNT = Gauge(
-    'active_players_count',
-    'Number of active players being tracked'
 )
 
 

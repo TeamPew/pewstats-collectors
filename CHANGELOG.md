@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.6.0...v1.6.1) (2025-10-09)
+
+
+### Bug Fixes
+
+* move TELEMETRY_FILE_READ_DURATION to metrics.py ([e726e9c](https://github.com/TeamPew/pewstats-collectors/commit/e726e9c33cb2d6c3c647587de9a039e5b5d658bd))
+* move TELEMETRY_FILE_READ_DURATION to metrics.py ([903f409](https://github.com/TeamPew/pewstats-collectors/commit/903f409eec24212622ba26e01318c553a98446e6))
+
 ## [1.6.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.5.0...v1.6.0) (2025-10-09)
 
 

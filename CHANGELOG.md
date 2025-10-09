@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.6.1...v1.6.2) (2025-10-09)
+
+
+### Bug Fixes
+
+* remove host port mappings for metrics to support multiple replicas ([ecac851](https://github.com/TeamPew/pewstats-collectors/commit/ecac8515b2ef1e82cb6e20c047034d4ba3b57491))
+* remove host port mappings for metrics to support multiple replicas ([8fe359b](https://github.com/TeamPew/pewstats-collectors/commit/8fe359bf6ecc264e6faaa375517f0d84c1683db4))
+
 ## [1.6.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.6.0...v1.6.1) (2025-10-09)
 
 

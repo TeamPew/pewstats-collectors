@@ -102,7 +102,7 @@ class MatchSummaryWorker:
             error_msg = "Message missing match_id field"
             self.logger.error(f"[{self.worker_id}] {error_msg}")
             self.error_count += 1
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='match_summary', status='failed').inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="match_summary", status="failed").inc()
             return {"success": False, "error": error_msg}
 
         self.logger.info(f"[{self.worker_id}] Processing match discovery for match: {match_id}")
@@ -146,18 +146,26 @@ class MatchSummaryWorker:
                         f"to telemetry queue with URL: {telemetry_url[:80]}"
                     )
                     self.processed_count += 1
-                    MATCH_SUMMARIES_PROCESSED.labels(status='skipped').inc()
-                    QUEUE_MESSAGES_PROCESSED.labels(queue_name='match_summary', status='success').inc()
-                    QUEUE_PROCESSING_DURATION.labels(queue_name='match_summary').observe(time.time() - start_time)
+                    MATCH_SUMMARIES_PROCESSED.labels(status="skipped").inc()
+                    QUEUE_MESSAGES_PROCESSED.labels(
+                        queue_name="match_summary", status="success"
+                    ).inc()
+                    QUEUE_PROCESSING_DURATION.labels(queue_name="match_summary").observe(
+                        time.time() - start_time
+                    )
                     return {"success": True}
                 else:
                     error_msg = "Failed to publish to telemetry queue"
                     self.logger.error(f"[{self.worker_id}] Match {match_id}: {error_msg}")
                     self._update_match_status(match_id, "failed", error_msg)
                     self.error_count += 1
-                    MATCH_SUMMARIES_PROCESSED.labels(status='failed').inc()
-                    QUEUE_MESSAGES_PROCESSED.labels(queue_name='match_summary', status='failed').inc()
-                    WORKER_ERRORS.labels(worker_type='match_summary', error_type='PublishError').inc()
+                    MATCH_SUMMARIES_PROCESSED.labels(status="failed").inc()
+                    QUEUE_MESSAGES_PROCESSED.labels(
+                        queue_name="match_summary", status="failed"
+                    ).inc()
+                    WORKER_ERRORS.labels(
+                        worker_type="match_summary", error_type="PublishError"
+                    ).inc()
                     return {"success": False, "error": error_msg}
 
             # Fetch match data from PUBG API
@@ -227,11 +235,13 @@ class MatchSummaryWorker:
             )
 
             # Record metrics
-            MATCH_SUMMARIES_PROCESSED.labels(status='success').inc()
+            MATCH_SUMMARIES_PROCESSED.labels(status="success").inc()
             MATCH_PROCESSING_DURATION.observe(duration)
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='match_summary', status='success').inc()
-            QUEUE_PROCESSING_DURATION.labels(queue_name='match_summary').observe(duration)
-            DATABASE_OPERATIONS.labels(operation='insert', table='match_summaries', status='success').inc(inserted_count)
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="match_summary", status="success").inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="match_summary").observe(duration)
+            DATABASE_OPERATIONS.labels(
+                operation="insert", table="match_summaries", status="success"
+            ).inc(inserted_count)
 
             return {"success": True}
 
@@ -243,10 +253,10 @@ class MatchSummaryWorker:
             self.error_count += 1
 
             # Record error metrics
-            MATCH_SUMMARIES_PROCESSED.labels(status='failed').inc()
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='match_summary', status='failed').inc()
-            QUEUE_PROCESSING_DURATION.labels(queue_name='match_summary').observe(duration)
-            WORKER_ERRORS.labels(worker_type='match_summary', error_type=type(e).__name__).inc()
+            MATCH_SUMMARIES_PROCESSED.labels(status="failed").inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="match_summary", status="failed").inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="match_summary").observe(duration)
+            WORKER_ERRORS.labels(worker_type="match_summary", error_type=type(e).__name__).inc()
 
             return {"success": False, "error": str(e)}
 

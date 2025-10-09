@@ -27,9 +27,9 @@ from prometheus_client import Histogram
 
 # Telemetry processing specific metric (not in shared metrics.py)
 TELEMETRY_FILE_READ_DURATION = Histogram(
-    'telemetry_file_read_duration_seconds',
-    'Time to read and parse telemetry file',
-    buckets=[0.1, 0.5, 1, 5, 10, 30, 60]
+    "telemetry_file_read_duration_seconds",
+    "Time to read and parse telemetry file",
+    buckets=[0.1, 0.5, 1, 5, 10, 30, 60],
 )
 
 
@@ -92,10 +92,14 @@ class TelemetryProcessingWorker:
             self.logger.error(f"[{self.worker_id}] {error_msg}")
             self.error_count += 1
             duration = time.time() - start_time
-            TELEMETRY_PROCESSED.labels(status='failed').inc()
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_processing', status='failed').inc()
-            QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_processing').observe(duration)
-            WORKER_ERRORS.labels(worker_type='telemetry_processing', error_type='ValidationError').inc()
+            TELEMETRY_PROCESSED.labels(status="failed").inc()
+            QUEUE_MESSAGES_PROCESSED.labels(
+                queue_name="telemetry_processing", status="failed"
+            ).inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(duration)
+            WORKER_ERRORS.labels(
+                worker_type="telemetry_processing", error_type="ValidationError"
+            ).inc()
             return {"success": False, "error": error_msg}
 
         if not file_path:
@@ -103,10 +107,14 @@ class TelemetryProcessingWorker:
             self.logger.error(f"[{self.worker_id}] {error_msg}")
             self.error_count += 1
             duration = time.time() - start_time
-            TELEMETRY_PROCESSED.labels(status='failed').inc()
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_processing', status='failed').inc()
-            QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_processing').observe(duration)
-            WORKER_ERRORS.labels(worker_type='telemetry_processing', error_type='ValidationError').inc()
+            TELEMETRY_PROCESSED.labels(status="failed").inc()
+            QUEUE_MESSAGES_PROCESSED.labels(
+                queue_name="telemetry_processing", status="failed"
+            ).inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(duration)
+            WORKER_ERRORS.labels(
+                worker_type="telemetry_processing", error_type="ValidationError"
+            ).inc()
             return {"success": False, "error": error_msg}
 
         self.logger.info(f"[{self.worker_id}] Processing telemetry for match: {match_id}")
@@ -123,9 +131,13 @@ class TelemetryProcessingWorker:
                 self.logger.error(f"[{self.worker_id}] {error_msg}")
                 self.error_count += 1
                 duration = time.time() - start_time
-                TELEMETRY_PROCESSED.labels(status='failed').inc()
-                QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_processing', status='failed').inc()
-                QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_processing').observe(duration)
+                TELEMETRY_PROCESSED.labels(status="failed").inc()
+                QUEUE_MESSAGES_PROCESSED.labels(
+                    queue_name="telemetry_processing", status="failed"
+                ).inc()
+                QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(
+                    duration
+                )
                 return {"success": False, "error": error_msg}
 
             self.logger.debug(
@@ -141,9 +153,13 @@ class TelemetryProcessingWorker:
                     f"[{self.worker_id}] Match {match_id} has game_type='{game_type}', skipping telemetry event processing"
                 )
                 duration = time.time() - start_time
-                TELEMETRY_PROCESSED.labels(status='skipped').inc()
-                QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_processing', status='success').inc()
-                QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_processing').observe(duration)
+                TELEMETRY_PROCESSED.labels(status="skipped").inc()
+                QUEUE_MESSAGES_PROCESSED.labels(
+                    queue_name="telemetry_processing", status="success"
+                ).inc()
+                QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(
+                    duration
+                )
                 return {"success": True, "skipped": True, "reason": f"game_type={game_type}"}
 
             # Check which event types are already processed
@@ -169,9 +185,13 @@ class TelemetryProcessingWorker:
                     f"[{self.worker_id}] Match {match_id} already fully processed, skipping"
                 )
                 duration = time.time() - start_time
-                TELEMETRY_PROCESSED.labels(status='skipped').inc()
-                QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_processing', status='success').inc()
-                QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_processing').observe(duration)
+                TELEMETRY_PROCESSED.labels(status="skipped").inc()
+                QUEUE_MESSAGES_PROCESSED.labels(
+                    queue_name="telemetry_processing", status="success"
+                ).inc()
+                QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(
+                    duration
+                )
                 return {"success": True, "skipped": True}
 
             # Extract only unprocessed event types
@@ -200,19 +220,21 @@ class TelemetryProcessingWorker:
 
             # Track extracted events
             if landings:
-                TELEMETRY_EVENTS_EXTRACTED.labels(event_type='landings').inc(len(landings))
+                TELEMETRY_EVENTS_EXTRACTED.labels(event_type="landings").inc(len(landings))
             if kill_positions:
-                TELEMETRY_EVENTS_EXTRACTED.labels(event_type='kills').inc(len(kill_positions))
+                TELEMETRY_EVENTS_EXTRACTED.labels(event_type="kills").inc(len(kill_positions))
             if weapon_kills:
-                TELEMETRY_EVENTS_EXTRACTED.labels(event_type='weapon_kills').inc(len(weapon_kills))
+                TELEMETRY_EVENTS_EXTRACTED.labels(event_type="weapon_kills").inc(len(weapon_kills))
             if damage_events:
-                TELEMETRY_EVENTS_EXTRACTED.labels(event_type='damage').inc(len(damage_events))
+                TELEMETRY_EVENTS_EXTRACTED.labels(event_type="damage").inc(len(damage_events))
 
             # Store in database (transaction)
             db_start = time.time()
             self._store_events(match_id, landings, kill_positions, weapon_kills, damage_events)
             db_duration = time.time() - db_start
-            DATABASE_OPERATION_DURATION.labels(operation='batch_insert', table='telemetry_events').observe(db_duration)
+            DATABASE_OPERATION_DURATION.labels(
+                operation="batch_insert", table="telemetry_events"
+            ).observe(db_duration)
 
             # Update match status
             self._update_match_completion(match_id)
@@ -221,10 +243,12 @@ class TelemetryProcessingWorker:
             self.processed_count += 1
             duration = time.time() - start_time
 
-            TELEMETRY_PROCESSED.labels(status='success').inc()
+            TELEMETRY_PROCESSED.labels(status="success").inc()
             TELEMETRY_PROCESSING_DURATION.observe(duration)
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_processing', status='success').inc()
-            QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_processing').observe(duration)
+            QUEUE_MESSAGES_PROCESSED.labels(
+                queue_name="telemetry_processing", status="success"
+            ).inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(duration)
 
             self.logger.info(
                 f"[{self.worker_id}] ✅ Successfully processed telemetry for match {match_id} "
@@ -241,10 +265,14 @@ class TelemetryProcessingWorker:
             self.error_count += 1
 
             duration = time.time() - start_time
-            TELEMETRY_PROCESSED.labels(status='failed').inc()
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_processing', status='failed').inc()
-            QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_processing').observe(duration)
-            WORKER_ERRORS.labels(worker_type='telemetry_processing', error_type=type(e).__name__).inc()
+            TELEMETRY_PROCESSED.labels(status="failed").inc()
+            QUEUE_MESSAGES_PROCESSED.labels(
+                queue_name="telemetry_processing", status="failed"
+            ).inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(duration)
+            WORKER_ERRORS.labels(
+                worker_type="telemetry_processing", error_type=type(e).__name__
+            ).inc()
 
             return {"success": False, "error": str(e)}
 

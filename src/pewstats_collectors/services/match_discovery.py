@@ -112,7 +112,7 @@ class MatchDiscoveryService:
             if not players:
                 self.logger.warning("No active players found in database")
                 duration = time.time() - start_time
-                MATCH_DISCOVERY_RUNS.labels(status='success').inc()
+                MATCH_DISCOVERY_RUNS.labels(status="success").inc()
                 MATCH_DISCOVERY_DURATION.observe(duration)
                 ACTIVE_PLAYERS_COUNT.set(0)
                 return self._empty_summary()
@@ -127,19 +127,19 @@ class MatchDiscoveryService:
             if not new_match_ids:
                 self.logger.info("No new matches found")
                 duration = time.time() - start_time
-                MATCH_DISCOVERY_RUNS.labels(status='success').inc()
+                MATCH_DISCOVERY_RUNS.labels(status="success").inc()
                 MATCH_DISCOVERY_DURATION.observe(duration)
                 return self._empty_summary()
 
             self.logger.info(f"Found {len(new_match_ids)} new matches to process")
-            MATCHES_DISCOVERED.labels(status='new').inc(len(new_match_ids))
+            MATCHES_DISCOVERED.labels(status="new").inc(len(new_match_ids))
 
             # 3. Process each match
             summary = self._process_matches(new_match_ids)
 
             # 4. Log summary
             duration = time.time() - start_time
-            MATCH_DISCOVERY_RUNS.labels(status='success').inc()
+            MATCH_DISCOVERY_RUNS.labels(status="success").inc()
             MATCH_DISCOVERY_DURATION.observe(duration)
 
             self.logger.info(
@@ -154,9 +154,9 @@ class MatchDiscoveryService:
 
         except Exception as e:
             duration = time.time() - start_time
-            MATCH_DISCOVERY_RUNS.labels(status='failed').inc()
+            MATCH_DISCOVERY_RUNS.labels(status="failed").inc()
             MATCH_DISCOVERY_DURATION.observe(duration)
-            WORKER_ERRORS.labels(worker_type='match_discovery', error_type=type(e).__name__).inc()
+            WORKER_ERRORS.labels(worker_type="match_discovery", error_type=type(e).__name__).inc()
             self.logger.error(f"Match discovery pipeline failed: {e}")
             raise
 
@@ -235,7 +235,9 @@ class MatchDiscoveryService:
 
                 if insert_success:
                     processed_count += 1
-                    DATABASE_OPERATIONS.labels(operation='insert', table='matches', status='success').inc()
+                    DATABASE_OPERATIONS.labels(
+                        operation="insert", table="matches", status="success"
+                    ).inc()
                     self.logger.info(f"Successfully stored match: {match_id}")
 
                     # Queue for RabbitMQ processing
@@ -243,19 +245,21 @@ class MatchDiscoveryService:
 
                     if queue_success:
                         queued_count += 1
-                        MATCHES_QUEUED.labels(status='success').inc()
+                        MATCHES_QUEUED.labels(status="success").inc()
                         self.logger.debug(f"Successfully queued match: {match_id}")
                     else:
-                        MATCHES_QUEUED.labels(status='failed').inc()
+                        MATCHES_QUEUED.labels(status="failed").inc()
                         self.logger.warning(f"Failed to queue match: {match_id}")
                 else:
-                    MATCHES_DISCOVERED.labels(status='existing').inc()
+                    MATCHES_DISCOVERED.labels(status="existing").inc()
                     self.logger.warning(f"Match already exists in database: {match_id}")
 
             except Exception as e:
                 failed_count += 1
-                MATCHES_DISCOVERED.labels(status='failed').inc()
-                WORKER_ERRORS.labels(worker_type='match_discovery', error_type=type(e).__name__).inc()
+                MATCHES_DISCOVERED.labels(status="failed").inc()
+                WORKER_ERRORS.labels(
+                    worker_type="match_discovery", error_type=type(e).__name__
+                ).inc()
                 self.logger.error(f"Failed to process match {match_id}: {e}")
 
                 # Try to record error in database (R compatibility)

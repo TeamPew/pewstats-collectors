@@ -92,14 +92,14 @@ class TelemetryDownloadWorker:
             error_msg = "Message missing match_id field"
             self.logger.error(f"[{self.worker_id}] {error_msg}")
             self.error_count += 1
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='failed').inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="telemetry_download", status="failed").inc()
             return {"success": False, "error": error_msg}
 
         if not telemetry_url:
             error_msg = f"Message missing telemetry_url field for match {match_id}"
             self.logger.error(f"[{self.worker_id}] {error_msg}")
             self.error_count += 1
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='failed').inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="telemetry_download", status="failed").inc()
             return {"success": False, "error": error_msg}
 
         self.logger.info(f"[{self.worker_id}] Processing telemetry download for match: {match_id}")
@@ -124,18 +124,26 @@ class TelemetryDownloadWorker:
 
                 if publish_success:
                     self.processed_count += 1
-                    TELEMETRY_DOWNLOADS.labels(status='cached').inc()
+                    TELEMETRY_DOWNLOADS.labels(status="cached").inc()
                     TELEMETRY_FILE_SIZE.observe(os.path.getsize(file_path))
-                    QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='success').inc()
-                    QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_download').observe(time.time() - start_time)
+                    QUEUE_MESSAGES_PROCESSED.labels(
+                        queue_name="telemetry_download", status="success"
+                    ).inc()
+                    QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_download").observe(
+                        time.time() - start_time
+                    )
                     return {"success": True, "reason": "already_exists"}
                 else:
                     error_msg = "Failed to publish to processing queue"
                     self.logger.error(f"[{self.worker_id}] {error_msg}")
                     self.error_count += 1
-                    TELEMETRY_DOWNLOADS.labels(status='failed').inc()
-                    QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='failed').inc()
-                    WORKER_ERRORS.labels(worker_type='telemetry_download', error_type='PublishError').inc()
+                    TELEMETRY_DOWNLOADS.labels(status="failed").inc()
+                    QUEUE_MESSAGES_PROCESSED.labels(
+                        queue_name="telemetry_download", status="failed"
+                    ).inc()
+                    WORKER_ERRORS.labels(
+                        worker_type="telemetry_download", error_type="PublishError"
+                    ).inc()
                     return {"success": False, "error": error_msg}
 
             # Download telemetry
@@ -174,9 +182,11 @@ class TelemetryDownloadWorker:
             )
 
             # Record success metrics
-            TELEMETRY_DOWNLOADS.labels(status='success').inc()
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='success').inc()
-            QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_download').observe(total_duration)
+            TELEMETRY_DOWNLOADS.labels(status="success").inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="telemetry_download", status="success").inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_download").observe(
+                total_duration
+            )
 
             return {"success": True}
 
@@ -187,10 +197,14 @@ class TelemetryDownloadWorker:
             self.error_count += 1
 
             # Record error metrics
-            TELEMETRY_DOWNLOADS.labels(status='failed').inc()
-            QUEUE_MESSAGES_PROCESSED.labels(queue_name='telemetry_download', status='failed').inc()
-            QUEUE_PROCESSING_DURATION.labels(queue_name='telemetry_download').observe(total_duration)
-            WORKER_ERRORS.labels(worker_type='telemetry_download', error_type=type(e).__name__).inc()
+            TELEMETRY_DOWNLOADS.labels(status="failed").inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="telemetry_download", status="failed").inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_download").observe(
+                total_duration
+            )
+            WORKER_ERRORS.labels(
+                worker_type="telemetry_download", error_type=type(e).__name__
+            ).inc()
 
             return {"success": False, "error": str(e)}
 

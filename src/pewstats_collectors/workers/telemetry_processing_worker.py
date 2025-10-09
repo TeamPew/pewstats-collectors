@@ -20,16 +20,8 @@ from ..metrics import (
     TELEMETRY_PROCESSED,
     TELEMETRY_PROCESSING_DURATION,
     TELEMETRY_EVENTS_EXTRACTED,
+    TELEMETRY_FILE_READ_DURATION,
     start_metrics_server,
-)
-
-from prometheus_client import Histogram
-
-# Telemetry processing specific metric (not in shared metrics.py)
-TELEMETRY_FILE_READ_DURATION = Histogram(
-    "telemetry_file_read_duration_seconds",
-    "Time to read and parse telemetry file",
-    buckets=[0.1, 0.5, 1, 5, 10, 30, 60],
 )
 
 

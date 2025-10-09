@@ -91,6 +91,12 @@ TELEMETRY_EVENTS_EXTRACTED = Counter(
     ["event_type"],  # LogPlayerKill, LogPlayerTakeDamage, etc.
 )
 
+TELEMETRY_FILE_READ_DURATION = Histogram(
+    "telemetry_file_read_duration_seconds",
+    "Time to read and parse telemetry file",
+    buckets=[0.1, 0.5, 1, 5, 10, 30, 60],
+)
+
 # Queue metrics
 QUEUE_MESSAGES_PROCESSED = Counter(
     "queue_messages_processed_total",

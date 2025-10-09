@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.6...v1.5.0) (2025-10-09)
+
+
+### Features
+
+* add tournament match discovery system ([980db43](https://github.com/TeamPew/pewstats-collectors/commit/980db43c1245bc32c71e2dc0440b5dac3e083606))
+
+
+### Bug Fixes
+
+* remove duplicate execute_query method in DatabaseManager ([af77fe1](https://github.com/TeamPew/pewstats-collectors/commit/af77fe1ef753b1c1e573ba2e8b3fb1dbff16a697))
+
 ## [1.4.6](https://github.com/TeamPew/pewstats-collectors/compare/v1.4.5...v1.4.6) (2025-10-06)
 
 

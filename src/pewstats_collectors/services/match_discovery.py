@@ -28,7 +28,6 @@ from pewstats_collectors.core.rabbitmq_publisher import RabbitMQPublisher
 
 # Import metrics
 from pewstats_collectors.metrics import (
-    MATCH_DISCOVERY_REQUESTS,
     MATCH_DISCOVERY_RUNS,
     MATCH_DISCOVERY_DURATION,
     MATCHES_DISCOVERED,
@@ -232,9 +231,7 @@ class MatchDiscoveryService:
                 )
 
                 # Insert into database (ON CONFLICT DO NOTHING)
-                db_start = time.time()
                 insert_success = self.database.insert_match(metadata)
-                db_duration = time.time() - db_start
 
                 if insert_success:
                     processed_count += 1

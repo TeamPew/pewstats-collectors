@@ -6,12 +6,22 @@ extracts participant statistics, stores them in the database, and forwards to te
 """
 
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..core.database_manager import DatabaseManager
 from ..core.pubg_client import PUBGClient
 from ..core.rabbitmq_publisher import RabbitMQPublisher
+from ..metrics import (
+    MATCH_SUMMARIES_PROCESSED,
+    MATCH_PROCESSING_DURATION,
+    QUEUE_MESSAGES_PROCESSED,
+    QUEUE_PROCESSING_DURATION,
+    WORKER_ERRORS,
+    DATABASE_OPERATIONS,
+    start_metrics_server,
+)
 
 # Map name translations from internal PUBG names to display names
 MAP_NAME_TRANSLATIONS = {
@@ -47,6 +57,7 @@ class MatchSummaryWorker:
         rabbitmq_publisher: RabbitMQPublisher,
         worker_id: str,
         logger: Optional[logging.Logger] = None,
+        metrics_port: int = 9091,
     ):
         """
         Initialize match summary worker.
@@ -57,6 +68,7 @@ class MatchSummaryWorker:
             rabbitmq_publisher: RabbitMQ publisher instance
             worker_id: Unique worker identifier
             logger: Optional logger instance
+            metrics_port: Port to expose Prometheus metrics on (default: 9091)
         """
         self.pubg_client = pubg_client
         self.database_manager = database_manager
@@ -67,6 +79,9 @@ class MatchSummaryWorker:
         # Processing counters
         self.processed_count = 0
         self.error_count = 0
+
+        # Start metrics server
+        start_metrics_server(port=metrics_port, worker_name=f"match-summary-{worker_id}")
 
         self.logger.info(f"[{self.worker_id}] Match summary worker initialized")
 
@@ -80,11 +95,14 @@ class MatchSummaryWorker:
         Returns:
             Dict with success status: {"success": bool, "error": str}
         """
+        start_time = time.time()
         match_id = data.get("match_id")
+
         if not match_id:
             error_msg = "Message missing match_id field"
             self.logger.error(f"[{self.worker_id}] {error_msg}")
             self.error_count += 1
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="match_summary", status="failed").inc()
             return {"success": False, "error": error_msg}
 
         self.logger.info(f"[{self.worker_id}] Processing match discovery for match: {match_id}")
@@ -128,12 +146,26 @@ class MatchSummaryWorker:
                         f"to telemetry queue with URL: {telemetry_url[:80]}"
                     )
                     self.processed_count += 1
+                    MATCH_SUMMARIES_PROCESSED.labels(status="skipped").inc()
+                    QUEUE_MESSAGES_PROCESSED.labels(
+                        queue_name="match_summary", status="success"
+                    ).inc()
+                    QUEUE_PROCESSING_DURATION.labels(queue_name="match_summary").observe(
+                        time.time() - start_time
+                    )
                     return {"success": True}
                 else:
                     error_msg = "Failed to publish to telemetry queue"
                     self.logger.error(f"[{self.worker_id}] Match {match_id}: {error_msg}")
                     self._update_match_status(match_id, "failed", error_msg)
                     self.error_count += 1
+                    MATCH_SUMMARIES_PROCESSED.labels(status="failed").inc()
+                    QUEUE_MESSAGES_PROCESSED.labels(
+                        queue_name="match_summary", status="failed"
+                    ).inc()
+                    WORKER_ERRORS.labels(
+                        worker_type="match_summary", error_type="PublishError"
+                    ).inc()
                     return {"success": False, "error": error_msg}
 
             # Fetch match data from PUBG API
@@ -195,19 +227,37 @@ class MatchSummaryWorker:
 
             # Success!
             self.processed_count += 1
+            duration = time.time() - start_time
             self.logger.info(
                 f"[{self.worker_id}] ✅ Successfully processed match {match_id} "
                 f"({len(summaries)} participants) and published to telemetry queue "
                 f"with URL: {telemetry_url[:80]}"
             )
 
+            # Record metrics
+            MATCH_SUMMARIES_PROCESSED.labels(status="success").inc()
+            MATCH_PROCESSING_DURATION.observe(duration)
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="match_summary", status="success").inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="match_summary").observe(duration)
+            DATABASE_OPERATIONS.labels(
+                operation="insert", table="match_summaries", status="success"
+            ).inc(inserted_count)
+
             return {"success": True}
 
         except Exception as e:
+            duration = time.time() - start_time
             error_msg = f"Match summary processing failed: {str(e)}"
             self.logger.error(f"[{self.worker_id}] Match {match_id}: {error_msg}", exc_info=True)
             self._update_match_status(match_id, "failed", error_msg)
             self.error_count += 1
+
+            # Record error metrics
+            MATCH_SUMMARIES_PROCESSED.labels(status="failed").inc()
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="match_summary", status="failed").inc()
+            QUEUE_PROCESSING_DURATION.labels(queue_name="match_summary").observe(duration)
+            WORKER_ERRORS.labels(worker_type="match_summary", error_type=type(e).__name__).inc()
+
             return {"success": False, "error": str(e)}
 
     def extract_telemetry_url(self, match_data: Dict[str, Any]) -> Optional[str]:

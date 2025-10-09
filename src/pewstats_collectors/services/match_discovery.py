@@ -14,6 +14,7 @@ Key features:
 
 import logging
 import os
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -24,6 +25,18 @@ from pewstats_collectors.core.api_key_manager import APIKeyManager
 from pewstats_collectors.core.database_manager import DatabaseManager
 from pewstats_collectors.core.pubg_client import PUBGClient
 from pewstats_collectors.core.rabbitmq_publisher import RabbitMQPublisher
+
+# Import metrics
+from pewstats_collectors.metrics import (
+    MATCH_DISCOVERY_RUNS,
+    MATCH_DISCOVERY_DURATION,
+    MATCHES_DISCOVERED,
+    MATCHES_QUEUED,
+    ACTIVE_PLAYERS_COUNT,
+    WORKER_ERRORS,
+    DATABASE_OPERATIONS,
+    start_metrics_server,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -51,6 +64,8 @@ class MatchDiscoveryService:
         pubg_client: PUBGClient,
         rabbitmq_publisher: RabbitMQPublisher,
         logger: Optional[logging.Logger] = None,
+        metrics_port: int = 9090,
+        start_metrics: bool = True,
     ):
         """Initialize match discovery service.
 
@@ -59,11 +74,17 @@ class MatchDiscoveryService:
             pubg_client: PUBG API client instance
             rabbitmq_publisher: RabbitMQ publisher instance
             logger: Optional logger (creates new one if None)
+            metrics_port: Port for Prometheus metrics server (default: 9090)
+            start_metrics: Whether to start metrics server (default: True)
         """
         self.database = database
         self.pubg_client = pubg_client
         self.rabbitmq_publisher = rabbitmq_publisher
         self.logger = logger or logging.getLogger(__name__)
+
+        # Start metrics server (if enabled)
+        if start_metrics:
+            start_metrics_server(port=metrics_port, worker_name="match-discovery")
 
     def run(self, max_players: Optional[int] = None) -> Dict[str, Any]:
         """Run match discovery pipeline.
@@ -81,40 +102,63 @@ class MatchDiscoveryService:
                 "timestamp": datetime
             }
         """
+        start_time = time.time()
         self.logger.info("Starting match discovery pipeline")
 
-        # 1. Get active players
-        players = self._get_active_players(max_players)
+        try:
+            # 1. Get active players
+            players = self._get_active_players(max_players)
 
-        if not players:
-            self.logger.warning("No active players found in database")
-            return self._empty_summary()
+            if not players:
+                self.logger.warning("No active players found in database")
+                duration = time.time() - start_time
+                MATCH_DISCOVERY_RUNS.labels(status="success").inc()
+                MATCH_DISCOVERY_DURATION.observe(duration)
+                ACTIVE_PLAYERS_COUNT.set(0)
+                return self._empty_summary()
 
-        player_names = [p["player_name"] for p in players]
-        self.logger.info(f"Checking {len(players)} active players for new matches")
+            player_names = [p["player_name"] for p in players]
+            ACTIVE_PLAYERS_COUNT.set(len(players))
+            self.logger.info(f"Checking {len(players)} active players for new matches")
 
-        # 2. Discover new matches
-        new_match_ids = self._discover_new_matches(player_names)
+            # 2. Discover new matches
+            new_match_ids = self._discover_new_matches(player_names)
 
-        if not new_match_ids:
-            self.logger.info("No new matches found")
-            return self._empty_summary()
+            if not new_match_ids:
+                self.logger.info("No new matches found")
+                duration = time.time() - start_time
+                MATCH_DISCOVERY_RUNS.labels(status="success").inc()
+                MATCH_DISCOVERY_DURATION.observe(duration)
+                return self._empty_summary()
 
-        self.logger.info(f"Found {len(new_match_ids)} new matches to process")
+            self.logger.info(f"Found {len(new_match_ids)} new matches to process")
+            MATCHES_DISCOVERED.labels(status="new").inc(len(new_match_ids))
 
-        # 3. Process each match
-        summary = self._process_matches(new_match_ids)
+            # 3. Process each match
+            summary = self._process_matches(new_match_ids)
 
-        # 4. Log summary
-        self.logger.info(
-            f"Pipeline completed: "
-            f"Total matches: {summary['total_matches']}, "
-            f"Processed: {summary['processed']}, "
-            f"Failed: {summary['failed']}, "
-            f"Queued: {summary['queued']}"
-        )
+            # 4. Log summary
+            duration = time.time() - start_time
+            MATCH_DISCOVERY_RUNS.labels(status="success").inc()
+            MATCH_DISCOVERY_DURATION.observe(duration)
 
-        return summary
+            self.logger.info(
+                f"Pipeline completed: "
+                f"Total matches: {summary['total_matches']}, "
+                f"Processed: {summary['processed']}, "
+                f"Failed: {summary['failed']}, "
+                f"Queued: {summary['queued']}"
+            )
+
+            return summary
+
+        except Exception as e:
+            duration = time.time() - start_time
+            MATCH_DISCOVERY_RUNS.labels(status="failed").inc()
+            MATCH_DISCOVERY_DURATION.observe(duration)
+            WORKER_ERRORS.labels(worker_type="match_discovery", error_type=type(e).__name__).inc()
+            self.logger.error(f"Match discovery pipeline failed: {e}")
+            raise
 
     def _get_active_players(self, max_players: Optional[int]) -> List[Dict[str, Any]]:
         """Get active players from database.
@@ -191,6 +235,9 @@ class MatchDiscoveryService:
 
                 if insert_success:
                     processed_count += 1
+                    DATABASE_OPERATIONS.labels(
+                        operation="insert", table="matches", status="success"
+                    ).inc()
                     self.logger.info(f"Successfully stored match: {match_id}")
 
                     # Queue for RabbitMQ processing
@@ -198,14 +245,21 @@ class MatchDiscoveryService:
 
                     if queue_success:
                         queued_count += 1
+                        MATCHES_QUEUED.labels(status="success").inc()
                         self.logger.debug(f"Successfully queued match: {match_id}")
                     else:
+                        MATCHES_QUEUED.labels(status="failed").inc()
                         self.logger.warning(f"Failed to queue match: {match_id}")
                 else:
+                    MATCHES_DISCOVERED.labels(status="existing").inc()
                     self.logger.warning(f"Match already exists in database: {match_id}")
 
             except Exception as e:
                 failed_count += 1
+                MATCHES_DISCOVERED.labels(status="failed").inc()
+                WORKER_ERRORS.labels(
+                    worker_type="match_discovery", error_type=type(e).__name__
+                ).inc()
                 self.logger.error(f"Failed to process match {match_id}: {e}")
 
                 # Try to record error in database (R compatibility)

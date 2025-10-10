@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.7.0...v1.7.1) (2025-10-10)
+
+
+### Bug Fixes
+
+* use correct column name stats_updated_at for player_damage_stats ([d78cb51](https://github.com/TeamPew/pewstats-collectors/commit/d78cb51af0d2856cde40267639cfb7a4b150f960))
+* use correct column name stats_updated_at for player_damage_stats ([08c343e](https://github.com/TeamPew/pewstats-collectors/commit/08c343e2f5e865a671f5f83ebed8097f2d2e52a7))
+
 ## [1.7.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.6.2...v1.7.0) (2025-10-10)
 
 

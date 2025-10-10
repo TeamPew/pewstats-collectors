@@ -183,6 +183,45 @@ services:
     networks:
       - pewstats-network
 
+  # Stats Aggregation Worker - Aggregates telemetry events into player stats
+  stats-aggregation-worker:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.workers.stats_aggregation_worker"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=stats-aggregation-worker-1
+      - BATCH_SIZE=${STATS_BATCH_SIZE:-100}
+      - AGGREGATION_INTERVAL=${STATS_AGGREGATION_INTERVAL:-300}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
 networks:
   pewstats-network:
     external: true

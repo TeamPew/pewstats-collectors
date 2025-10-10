@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.7.1...v1.8.0) (2025-10-10)
+
+
+### Features
+
+* add finishing metrics processing and backfill system ([7d22c15](https://github.com/TeamPew/pewstats-collectors/commit/7d22c1565b727b880cfa8332c3bb4cf42d461a37))
+
 ## [1.7.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.7.0...v1.7.1) (2025-10-10)
 
 

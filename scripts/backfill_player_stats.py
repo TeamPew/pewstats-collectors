@@ -159,7 +159,7 @@ def backfill_weapon_stats(db_manager: DatabaseManager, batch_size: int = 1000) -
                     )
                     SELECT
                         wke.killer_name as player_name,
-                        wke.weapon_id,
+                        COALESCE(wke.weapon_id, 'Unknown') as weapon_id,
                         CASE
                             WHEN m.game_type IN ('competitive', 'ranked', 'Competitive', 'esports') THEN 'ranked'
                             WHEN m.game_type IN ('normal', 'Normal', 'official', 'arcade', 'event') THEN 'normal'
@@ -178,7 +178,6 @@ def backfill_weapon_stats(db_manager: DatabaseManager, batch_size: int = 1000) -
                     JOIN matches m ON wke.match_id = m.match_id
                     WHERE wke.killer_name IS NOT NULL
                       AND wke.killer_name != ''
-                      AND wke.weapon_id IS NOT NULL
                       AND m.status = 'completed'
                     GROUP BY wke.killer_name, wke.weapon_id, match_type
                     ON CONFLICT (player_name, weapon_id, match_type)

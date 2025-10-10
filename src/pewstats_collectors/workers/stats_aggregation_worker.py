@@ -332,7 +332,7 @@ class StatsAggregationWorker:
                         )
                         SELECT
                             wke.killer_name as player_name,
-                            wke.weapon_id,
+                            COALESCE(wke.weapon_id, 'Unknown') as weapon_id,
                             %s as match_type,
                             COUNT(CASE WHEN wke.is_kill THEN 1 END) as total_kills,
                             COUNT(CASE WHEN wke.is_kill AND wke.damage_type LIKE '%%HeadShot%%' THEN 1 END) as headshot_kills,
@@ -347,7 +347,6 @@ class StatsAggregationWorker:
                         WHERE wke.match_id = %s
                           AND wke.killer_name IS NOT NULL
                           AND wke.killer_name != ''
-                          AND wke.weapon_id IS NOT NULL
                         GROUP BY wke.killer_name, wke.weapon_id
                         ON CONFLICT (player_name, weapon_id, match_type)
                         DO UPDATE SET
@@ -384,7 +383,7 @@ class StatsAggregationWorker:
                             )
                             SELECT
                                 wke.killer_name as player_name,
-                                wke.weapon_id,
+                                COALESCE(wke.weapon_id, 'Unknown') as weapon_id,
                                 'all' as match_type,
                                 COUNT(CASE WHEN wke.is_kill THEN 1 END) as total_kills,
                                 COUNT(CASE WHEN wke.is_kill AND wke.damage_type LIKE '%%HeadShot%%' THEN 1 END) as headshot_kills,
@@ -399,7 +398,6 @@ class StatsAggregationWorker:
                             WHERE wke.match_id = %s
                               AND wke.killer_name IS NOT NULL
                               AND wke.killer_name != ''
-                              AND wke.weapon_id IS NOT NULL
                             GROUP BY wke.killer_name, wke.weapon_id
                             ON CONFLICT (player_name, weapon_id, match_type)
                             DO UPDATE SET

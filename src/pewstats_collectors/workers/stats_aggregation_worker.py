@@ -126,9 +126,9 @@ class StatsAggregationWorker:
 
             duration = time.time() - start_time
 
-            QUEUE_MESSAGES_PROCESSED.labels(
-                queue_name="stats_aggregation", status="success"
-            ).inc(processed)
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="stats_aggregation", status="success").inc(
+                processed
+            )
             QUEUE_PROCESSING_DURATION.labels(queue_name="stats_aggregation").observe(duration)
 
             self.logger.info(
@@ -140,16 +140,10 @@ class StatsAggregationWorker:
 
         except Exception as e:
             duration = time.time() - start_time
-            self.logger.error(
-                f"[{self.worker_id}] Batch processing failed: {e}", exc_info=True
-            )
-            QUEUE_MESSAGES_PROCESSED.labels(
-                queue_name="stats_aggregation", status="failed"
-            ).inc()
+            self.logger.error(f"[{self.worker_id}] Batch processing failed: {e}", exc_info=True)
+            QUEUE_MESSAGES_PROCESSED.labels(queue_name="stats_aggregation", status="failed").inc()
             QUEUE_PROCESSING_DURATION.labels(queue_name="stats_aggregation").observe(duration)
-            WORKER_ERRORS.labels(
-                worker_type="stats_aggregation", error_type=type(e).__name__
-            ).inc()
+            WORKER_ERRORS.labels(worker_type="stats_aggregation", error_type=type(e).__name__).inc()
             return {"matches_processed": 0, "errors": 1}
 
     def _get_matches_needing_aggregation(self) -> List[Dict[str, Any]]:
@@ -175,9 +169,7 @@ class StatsAggregationWorker:
                     return cur.fetchall()
 
         except Exception as e:
-            self.logger.error(
-                f"[{self.worker_id}] Failed to get matches for aggregation: {e}"
-            )
+            self.logger.error(f"[{self.worker_id}] Failed to get matches for aggregation: {e}")
             return []
 
     def _determine_match_type(self, game_type: str) -> str:
@@ -517,8 +509,7 @@ if __name__ == "__main__":
             # Log results
             if result["matches_processed"] > 0:
                 logger.info(
-                    f"Processed {result['matches_processed']} matches "
-                    f"({result['errors']} errors)"
+                    f"Processed {result['matches_processed']} matches ({result['errors']} errors)"
                 )
 
             # Wait for next interval

@@ -214,7 +214,7 @@ class StatsAggregationWorker:
                             match_type,
                             total_damage,
                             total_hits,
-                            updated_at
+                            stats_updated_at
                         )
                         SELECT
                             de.attacker_name as player_name,
@@ -223,7 +223,7 @@ class StatsAggregationWorker:
                             %s as match_type,
                             SUM(de.damage) as total_damage,
                             COUNT(*) as total_hits,
-                            NOW() as updated_at
+                            NOW() as stats_updated_at
                         FROM player_damage_events de
                         WHERE de.match_id = %s
                           AND de.attacker_name IS NOT NULL
@@ -234,7 +234,7 @@ class StatsAggregationWorker:
                         DO UPDATE SET
                             total_damage = player_damage_stats.total_damage + EXCLUDED.total_damage,
                             total_hits = player_damage_stats.total_hits + EXCLUDED.total_hits,
-                            updated_at = EXCLUDED.updated_at
+                            stats_updated_at = EXCLUDED.stats_updated_at
                     """
 
                     cur.execute(query, (match_type, match_id))
@@ -250,7 +250,7 @@ class StatsAggregationWorker:
                                 match_type,
                                 total_damage,
                                 total_hits,
-                                updated_at
+                                stats_updated_at
                             )
                             SELECT
                                 de.attacker_name as player_name,
@@ -259,7 +259,7 @@ class StatsAggregationWorker:
                                 'all' as match_type,
                                 SUM(de.damage) as total_damage,
                                 COUNT(*) as total_hits,
-                                NOW() as updated_at
+                                NOW() as stats_updated_at
                             FROM player_damage_events de
                             WHERE de.match_id = %s
                               AND de.attacker_name IS NOT NULL
@@ -270,7 +270,7 @@ class StatsAggregationWorker:
                             DO UPDATE SET
                                 total_damage = player_damage_stats.total_damage + EXCLUDED.total_damage,
                                 total_hits = player_damage_stats.total_hits + EXCLUDED.total_hits,
-                                updated_at = EXCLUDED.updated_at
+                                stats_updated_at = EXCLUDED.stats_updated_at
                         """
                         cur.execute(query_all, (match_id,))
                         rows_affected += cur.rowcount

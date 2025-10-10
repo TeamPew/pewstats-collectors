@@ -838,6 +838,7 @@ class DatabaseManager:
         circles_processed: Optional[bool] = None,
         weapons_processed: Optional[bool] = None,
         damage_processed: Optional[bool] = None,
+        finishing_processed: Optional[bool] = None,
     ) -> bool:
         """Update match processing flags.
 
@@ -850,6 +851,7 @@ class DatabaseManager:
             circles_processed: Circles processed flag
             weapons_processed: Weapons processed flag
             damage_processed: Damage processed flag
+            finishing_processed: Finishing metrics processed flag
 
         Returns:
             True if match was updated
@@ -882,6 +884,10 @@ class DatabaseManager:
                 updates.append("damage_processed = %(damage_processed)s")
                 params["damage_processed"] = damage_processed
 
+            if finishing_processed is not None:
+                updates.append("finishing_processed = %(finishing_processed)s")
+                params["finishing_processed"] = finishing_processed
+
             if not updates:
                 return False
 
@@ -899,3 +905,158 @@ class DatabaseManager:
 
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to update match processing flags: {e}")
+
+    # ========================================================================
+    # Finishing Metrics Management
+    # ========================================================================
+
+    def insert_knock_events(self, knock_events: List[Dict[str, Any]]) -> int:
+        """Insert knock events in bulk.
+
+        Args:
+            knock_events: List of knock event dictionaries
+
+        Returns:
+            Number of knock events inserted
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not knock_events:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO player_knock_events (
+                    match_id, dbno_id, attack_id,
+                    attacker_name, attacker_team_id, attacker_account_id,
+                    attacker_location_x, attacker_location_y, attacker_location_z, attacker_health,
+                    victim_name, victim_team_id, victim_account_id,
+                    victim_location_x, victim_location_y, victim_location_z,
+                    damage_reason, damage_type_category,
+                    knock_weapon, knock_weapon_attachments,
+                    victim_weapon, victim_weapon_attachments,
+                    knock_distance,
+                    is_attacker_in_vehicle, is_through_penetrable_wall,
+                    is_blue_zone, is_red_zone, zone_name,
+                    nearest_teammate_distance, avg_teammate_distance,
+                    teammates_within_50m, teammates_within_100m, teammates_within_200m,
+                    team_spread_variance, total_teammates_alive, teammate_positions,
+                    victim_nearest_teammate_distance, victim_avg_teammate_distance,
+                    victim_teammates_within_50m, victim_teammates_within_100m, victim_teammates_within_200m,
+                    victim_team_spread_variance, victim_total_teammates_alive, victim_teammate_positions,
+                    outcome, finisher_name, finisher_is_self, finisher_is_teammate, time_to_finish,
+                    map_name, game_mode, game_type, match_datetime, event_timestamp
+                ) VALUES (
+                    %(match_id)s, %(dbno_id)s, %(attack_id)s,
+                    %(attacker_name)s, %(attacker_team_id)s, %(attacker_account_id)s,
+                    %(attacker_location_x)s, %(attacker_location_y)s, %(attacker_location_z)s, %(attacker_health)s,
+                    %(victim_name)s, %(victim_team_id)s, %(victim_account_id)s,
+                    %(victim_location_x)s, %(victim_location_y)s, %(victim_location_z)s,
+                    %(damage_reason)s, %(damage_type_category)s,
+                    %(knock_weapon)s, %(knock_weapon_attachments)s::jsonb,
+                    %(victim_weapon)s, %(victim_weapon_attachments)s::jsonb,
+                    %(knock_distance)s,
+                    %(is_attacker_in_vehicle)s, %(is_through_penetrable_wall)s,
+                    %(is_blue_zone)s, %(is_red_zone)s, %(zone_name)s,
+                    %(nearest_teammate_distance)s, %(avg_teammate_distance)s,
+                    %(teammates_within_50m)s, %(teammates_within_100m)s, %(teammates_within_200m)s,
+                    %(team_spread_variance)s, %(total_teammates_alive)s, %(teammate_positions)s::jsonb,
+                    %(victim_nearest_teammate_distance)s, %(victim_avg_teammate_distance)s,
+                    %(victim_teammates_within_50m)s, %(victim_teammates_within_100m)s, %(victim_teammates_within_200m)s,
+                    %(victim_team_spread_variance)s, %(victim_total_teammates_alive)s, %(victim_teammate_positions)s::jsonb,
+                    %(outcome)s, %(finisher_name)s, %(finisher_is_self)s, %(finisher_is_teammate)s, %(time_to_finish)s,
+                    %(map_name)s, %(game_mode)s, %(game_type)s, %(match_datetime)s, %(event_timestamp)s
+                )
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, knock_events)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert knock events: {e}")
+
+    def insert_finishing_summaries(self, summaries: List[Dict[str, Any]]) -> int:
+        """Insert finishing summaries in bulk with conflict handling.
+
+        Uses ON CONFLICT to update existing records.
+
+        Args:
+            summaries: List of finishing summary dictionaries
+
+        Returns:
+            Number of summaries inserted or updated
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not summaries:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO player_finishing_summary (
+                    match_id, player_name, player_account_id, team_id, team_rank,
+                    total_knocks, knocks_converted_self, knocks_finished_by_teammates,
+                    knocks_revived_by_enemy, instant_kills,
+                    finishing_rate, avg_time_to_finish_self, avg_time_to_finish_teammate,
+                    avg_knock_distance, min_knock_distance, max_knock_distance,
+                    knocks_cqc_0_10m, knocks_close_10_50m, knocks_medium_50_100m,
+                    knocks_long_100_200m, knocks_very_long_200m_plus,
+                    avg_nearest_teammate_distance, avg_team_spread,
+                    knocks_with_teammate_within_50m, knocks_with_teammate_within_100m,
+                    knocks_isolated_200m_plus,
+                    headshot_knock_count, wallbang_knock_count, vehicle_knock_count,
+                    map_name, game_mode, game_type, match_datetime
+                ) VALUES (
+                    %(match_id)s, %(player_name)s, %(player_account_id)s, %(team_id)s, %(team_rank)s,
+                    %(total_knocks)s, %(knocks_converted_self)s, %(knocks_finished_by_teammates)s,
+                    %(knocks_revived_by_enemy)s, %(instant_kills)s,
+                    %(finishing_rate)s, %(avg_time_to_finish_self)s, %(avg_time_to_finish_teammate)s,
+                    %(avg_knock_distance)s, %(min_knock_distance)s, %(max_knock_distance)s,
+                    %(knocks_cqc_0_10m)s, %(knocks_close_10_50m)s, %(knocks_medium_50_100m)s,
+                    %(knocks_long_100_200m)s, %(knocks_very_long_200m_plus)s,
+                    %(avg_nearest_teammate_distance)s, %(avg_team_spread)s,
+                    %(knocks_with_teammate_within_50m)s, %(knocks_with_teammate_within_100m)s,
+                    %(knocks_isolated_200m_plus)s,
+                    %(headshot_knock_count)s, %(wallbang_knock_count)s, %(vehicle_knock_count)s,
+                    %(map_name)s, %(game_mode)s, %(game_type)s, %(match_datetime)s
+                )
+                ON CONFLICT (match_id, player_name) DO UPDATE SET
+                    total_knocks = EXCLUDED.total_knocks,
+                    knocks_converted_self = EXCLUDED.knocks_converted_self,
+                    knocks_finished_by_teammates = EXCLUDED.knocks_finished_by_teammates,
+                    knocks_revived_by_enemy = EXCLUDED.knocks_revived_by_enemy,
+                    instant_kills = EXCLUDED.instant_kills,
+                    finishing_rate = EXCLUDED.finishing_rate,
+                    avg_time_to_finish_self = EXCLUDED.avg_time_to_finish_self,
+                    avg_time_to_finish_teammate = EXCLUDED.avg_time_to_finish_teammate,
+                    avg_knock_distance = EXCLUDED.avg_knock_distance,
+                    min_knock_distance = EXCLUDED.min_knock_distance,
+                    max_knock_distance = EXCLUDED.max_knock_distance,
+                    knocks_cqc_0_10m = EXCLUDED.knocks_cqc_0_10m,
+                    knocks_close_10_50m = EXCLUDED.knocks_close_10_50m,
+                    knocks_medium_50_100m = EXCLUDED.knocks_medium_50_100m,
+                    knocks_long_100_200m = EXCLUDED.knocks_long_100_200m,
+                    knocks_very_long_200m_plus = EXCLUDED.knocks_very_long_200m_plus,
+                    avg_nearest_teammate_distance = EXCLUDED.avg_nearest_teammate_distance,
+                    avg_team_spread = EXCLUDED.avg_team_spread,
+                    knocks_with_teammate_within_50m = EXCLUDED.knocks_with_teammate_within_50m,
+                    knocks_with_teammate_within_100m = EXCLUDED.knocks_with_teammate_within_100m,
+                    knocks_isolated_200m_plus = EXCLUDED.knocks_isolated_200m_plus,
+                    headshot_knock_count = EXCLUDED.headshot_knock_count,
+                    wallbang_knock_count = EXCLUDED.wallbang_knock_count,
+                    vehicle_knock_count = EXCLUDED.vehicle_knock_count
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, summaries)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert finishing summaries: {e}")

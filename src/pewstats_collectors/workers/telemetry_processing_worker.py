@@ -7,9 +7,11 @@ Processes raw telemetry JSON files and extracts events into database tables.
 import gzip
 import json
 import logging
+import math
 import time
+from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..core.database_manager import DatabaseManager
 from ..metrics import (
@@ -167,6 +169,8 @@ class TelemetryProcessingWorker:
                 to_process.append("weapons")
             if not processing_status.get("damage_processed"):
                 to_process.append("damage")
+            if not processing_status.get("finishing_processed"):
+                to_process.append("finishing")
 
             if to_process:
                 self.logger.info(
@@ -191,6 +195,8 @@ class TelemetryProcessingWorker:
             kill_positions = []
             weapon_kills = []
             damage_events = []
+            knock_events = []
+            finishing_summaries = []
 
             if not processing_status.get("landings_processed"):
                 landings = self.extract_landings(events, match_id, data)
@@ -204,10 +210,14 @@ class TelemetryProcessingWorker:
             if not processing_status.get("damage_processed"):
                 damage_events = self.extract_damage_events(events, match_id, data)
 
+            if not processing_status.get("finishing_processed"):
+                knock_events, finishing_summaries = self.extract_finishing_metrics(events, match_id, data)
+
             self.logger.debug(
                 f"[{self.worker_id}] Extracted events: {len(landings)} landings, "
                 f"{len(kill_positions)} kill positions, {len(weapon_kills)} weapon kills, "
-                f"{len(damage_events)} damage events"
+                f"{len(damage_events)} damage events, {len(knock_events)} knock events, "
+                f"{len(finishing_summaries)} finishing summaries"
             )
 
             # Track extracted events
@@ -219,10 +229,14 @@ class TelemetryProcessingWorker:
                 TELEMETRY_EVENTS_EXTRACTED.labels(event_type="weapon_kills").inc(len(weapon_kills))
             if damage_events:
                 TELEMETRY_EVENTS_EXTRACTED.labels(event_type="damage").inc(len(damage_events))
+            if knock_events:
+                TELEMETRY_EVENTS_EXTRACTED.labels(event_type="knock_events").inc(len(knock_events))
+            if finishing_summaries:
+                TELEMETRY_EVENTS_EXTRACTED.labels(event_type="finishing_summaries").inc(len(finishing_summaries))
 
             # Store in database (transaction)
             db_start = time.time()
-            self._store_events(match_id, landings, kill_positions, weapon_kills, damage_events)
+            self._store_events(match_id, landings, kill_positions, weapon_kills, damage_events, knock_events, finishing_summaries)
             db_duration = time.time() - db_start
             DATABASE_OPERATION_DURATION.labels(
                 operation="batch_insert", table="telemetry_events"
@@ -245,7 +259,8 @@ class TelemetryProcessingWorker:
             self.logger.info(
                 f"[{self.worker_id}] ✅ Successfully processed telemetry for match {match_id} "
                 f"({len(landings)} landings, {len(kill_positions)} kills, "
-                f"{len(weapon_kills)} weapon kills, {len(damage_events)} damage events)"
+                f"{len(weapon_kills)} weapon kills, {len(damage_events)} damage events, "
+                f"{len(knock_events)} knock events, {len(finishing_summaries)} finishing summaries)"
             )
 
             return {"success": True}
@@ -597,6 +612,427 @@ class TelemetryProcessingWorker:
 
         return damage_events
 
+    def extract_finishing_metrics(
+        self, events: List[Dict], match_id: str, match_data: Dict[str, Any]
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        Extract finishing metrics (knock events and summaries) from telemetry.
+
+        Args:
+            events: List of telemetry events
+            match_id: Match ID
+            match_data: Match metadata
+
+        Returns:
+            Tuple of (knock_events, finishing_summaries)
+        """
+        # Build position timeline
+        position_map = self._build_position_timeline(events)
+
+        # Build knock map
+        knock_map = {}
+        for event in events:
+            if get_event_type(event) == "LogPlayerMakeGroggy":
+                dbno_id = event.get("dBNOId")
+                if dbno_id:
+                    knock_map[dbno_id] = event
+
+        # Track revivals
+        revival_map = {}
+        for event in events:
+            if get_event_type(event) == "LogPlayerRevive":
+                dbno_id = event.get("dBNOId")
+                if dbno_id:
+                    revival_map[dbno_id] = event
+
+        # Process knock events
+        knock_events = []
+        player_stats = defaultdict(lambda: {
+            'total_knocks': 0,
+            'knocks_converted_self': 0,
+            'knocks_finished_by_teammates': 0,
+            'knocks_revived_by_enemy': 0,
+            'instant_kills': 0,
+            'time_to_finish_self': [],
+            'time_to_finish_teammate': [],
+            'knock_distances': [],
+            'nearest_teammate_distances': [],
+            'team_spreads': [],
+            'headshot_knocks': 0,
+            'wallbang_knocks': 0,
+            'vehicle_knocks': 0,
+            'knocks_with_teammate_50m': 0,
+            'knocks_with_teammate_100m': 0,
+            'knocks_isolated_200m': 0,
+            'team_id': None,
+            'account_id': None,
+        })
+
+        for dbno_id, knock_event in knock_map.items():
+            attacker = knock_event.get('attacker') or {}
+            victim = knock_event.get('victim') or {}
+            knocker_name = attacker.get('name')
+            knocker_team = attacker.get('teamId')
+            knocker_loc = attacker.get('location')
+            timestamp = knock_event.get('_D')
+
+            if not knocker_name:
+                continue
+
+            # Initialize player stats
+            if player_stats[knocker_name]['team_id'] is None:
+                player_stats[knocker_name]['team_id'] = knocker_team
+                player_stats[knocker_name]['account_id'] = attacker.get('accountId')
+
+            # Extract combat details
+            knock_distance = knock_event.get('distance', 0) / 100  # Convert to meters
+            damage_reason = knock_event.get('damageReason')
+            weapon = knock_event.get('damageCauserName')
+
+            # Find outcome (kill or revival)
+            outcome = 'unknown'
+            finisher_name = None
+            finisher_is_self = False
+            finisher_is_teammate = False
+            time_to_finish = None
+
+            # Check for kill
+            kill_found = False
+            for event in events:
+                if get_event_type(event) == 'LogPlayerKillV2' and event.get('dBNOId') == dbno_id:
+                    outcome = 'killed'
+                    finisher = event.get('finisher') or {}
+                    finisher_name = finisher.get('name')
+                    finisher_team = finisher.get('teamId')
+
+                    finisher_is_self = (finisher_name == knocker_name)
+                    finisher_is_teammate = (finisher_team == knocker_team and finisher_name != knocker_name)
+
+                    # Calculate time to finish
+                    try:
+                        knock_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                        kill_time = datetime.fromisoformat(event.get('_D').replace('Z', '+00:00'))
+                        time_to_finish = (kill_time - knock_time).total_seconds()
+                    except:
+                        pass
+
+                    kill_found = True
+                    break
+
+            # Check for revival
+            if not kill_found and dbno_id in revival_map:
+                outcome = 'revived'
+
+            # Find teammate positions at knock time
+            nearby_positions = self._find_positions_near_time(timestamp, position_map, window_seconds=5)
+
+            # Calculate ATTACKER teammate metrics
+            teammates = []
+            teammate_distances = []
+            for player_name, pos_data in nearby_positions.items():
+                if pos_data['teamId'] == knocker_team and player_name != knocker_name:
+                    dist = self._calculate_distance_3d(knocker_loc, pos_data['location'])
+                    if dist is not None:
+                        teammates.append({'name': player_name, 'distance': dist})
+                        teammate_distances.append(dist)
+
+            # Calculate attacker teammate metrics
+            nearest_teammate_dist = min(teammate_distances) if teammate_distances else None
+            avg_teammate_dist = sum(teammate_distances) / len(teammate_distances) if teammate_distances else None
+            team_spread_var = self._calculate_variance(teammate_distances)
+            teammates_50m = sum(1 for d in teammate_distances if d <= 50)
+            teammates_100m = sum(1 for d in teammate_distances if d <= 100)
+            teammates_200m = sum(1 for d in teammate_distances if d <= 200)
+
+            # Calculate VICTIM teammate metrics
+            victim_loc = victim.get('location')
+            victim_team = victim.get('teamId')
+            victim_teammates = []
+            victim_teammate_distances = []
+
+            for player_name, pos_data in nearby_positions.items():
+                if pos_data['teamId'] == victim_team and player_name != victim.get('name'):
+                    dist = self._calculate_distance_3d(victim_loc, pos_data['location'])
+                    if dist is not None:
+                        victim_teammates.append({'name': player_name, 'distance': dist})
+                        victim_teammate_distances.append(dist)
+
+            # Calculate victim teammate metrics
+            victim_nearest_teammate_dist = min(victim_teammate_distances) if victim_teammate_distances else None
+            victim_avg_teammate_dist = sum(victim_teammate_distances) / len(victim_teammate_distances) if victim_teammate_distances else None
+            victim_team_spread_var = self._calculate_variance(victim_teammate_distances)
+            victim_teammates_50m = sum(1 for d in victim_teammate_distances if d <= 50)
+            victim_teammates_100m = sum(1 for d in victim_teammate_distances if d <= 100)
+            victim_teammates_200m = sum(1 for d in victim_teammate_distances if d <= 200)
+
+            # Store knock event
+            knock_events.append({
+                'match_id': match_id,
+                'dbno_id': dbno_id,
+                'attack_id': knock_event.get('attackId'),
+                'attacker_name': knocker_name,
+                'attacker_team_id': knocker_team,
+                'attacker_account_id': attacker.get('accountId'),
+                'attacker_location_x': knocker_loc.get('x') if knocker_loc else None,
+                'attacker_location_y': knocker_loc.get('y') if knocker_loc else None,
+                'attacker_location_z': knocker_loc.get('z') if knocker_loc else None,
+                'attacker_health': attacker.get('health'),
+                'victim_name': victim.get('name'),
+                'victim_team_id': victim.get('teamId'),
+                'victim_account_id': victim.get('accountId'),
+                'victim_location_x': victim.get('location', {}).get('x'),
+                'victim_location_y': victim.get('location', {}).get('y'),
+                'victim_location_z': victim.get('location', {}).get('z'),
+                'damage_reason': damage_reason,
+                'damage_type_category': knock_event.get('damageTypeCategory'),
+                'knock_weapon': weapon,
+                'knock_weapon_attachments': json.dumps(knock_event.get('damageCauserAdditionalInfo') or []),
+                'victim_weapon': knock_event.get('victimWeapon'),
+                'victim_weapon_attachments': json.dumps(knock_event.get('victimWeaponAdditionalInfo') or []),
+                'knock_distance': knock_distance,
+                'is_attacker_in_vehicle': knock_event.get('isAttackerInVehicle', False),
+                'is_through_penetrable_wall': knock_event.get('isThroughPenetrableWall', False),
+                'is_blue_zone': attacker.get('isInBlueZone', False),
+                'is_red_zone': attacker.get('isInRedZone', False),
+                'zone_name': ','.join(attacker.get('zone', [])) if attacker.get('zone') else None,
+                'nearest_teammate_distance': nearest_teammate_dist,
+                'avg_teammate_distance': avg_teammate_dist,
+                'teammates_within_50m': teammates_50m,
+                'teammates_within_100m': teammates_100m,
+                'teammates_within_200m': teammates_200m,
+                'team_spread_variance': team_spread_var,
+                'total_teammates_alive': len(teammates),
+                'teammate_positions': json.dumps(teammates),
+                'victim_nearest_teammate_distance': victim_nearest_teammate_dist,
+                'victim_avg_teammate_distance': victim_avg_teammate_dist,
+                'victim_teammates_within_50m': victim_teammates_50m,
+                'victim_teammates_within_100m': victim_teammates_100m,
+                'victim_teammates_within_200m': victim_teammates_200m,
+                'victim_team_spread_variance': victim_team_spread_var,
+                'victim_total_teammates_alive': len(victim_teammates),
+                'victim_teammate_positions': json.dumps(victim_teammates),
+                'outcome': outcome,
+                'finisher_name': finisher_name,
+                'finisher_is_self': finisher_is_self,
+                'finisher_is_teammate': finisher_is_teammate,
+                'time_to_finish': time_to_finish,
+                'map_name': match_data.get('map_name'),
+                'game_mode': match_data.get('game_mode'),
+                'game_type': match_data.get('game_type'),
+                'match_datetime': match_data.get('match_datetime'),
+                'event_timestamp': timestamp,
+            })
+
+            # Update player stats
+            player_stats[knocker_name]['total_knocks'] += 1
+            player_stats[knocker_name]['knock_distances'].append(knock_distance)
+
+            if nearest_teammate_dist:
+                player_stats[knocker_name]['nearest_teammate_distances'].append(nearest_teammate_dist)
+                if nearest_teammate_dist <= 50:
+                    player_stats[knocker_name]['knocks_with_teammate_50m'] += 1
+                if nearest_teammate_dist <= 100:
+                    player_stats[knocker_name]['knocks_with_teammate_100m'] += 1
+                if nearest_teammate_dist >= 200:
+                    player_stats[knocker_name]['knocks_isolated_200m'] += 1
+
+            if avg_teammate_dist:
+                player_stats[knocker_name]['team_spreads'].append(avg_teammate_dist)
+
+            if damage_reason == 'HeadShot':
+                player_stats[knocker_name]['headshot_knocks'] += 1
+
+            if knock_event.get('isThroughPenetrableWall'):
+                player_stats[knocker_name]['wallbang_knocks'] += 1
+
+            if knock_event.get('isAttackerInVehicle'):
+                player_stats[knocker_name]['vehicle_knocks'] += 1
+
+            if outcome == 'killed':
+                if finisher_is_self:
+                    player_stats[knocker_name]['knocks_converted_self'] += 1
+                    if time_to_finish:
+                        player_stats[knocker_name]['time_to_finish_self'].append(time_to_finish)
+                elif finisher_is_teammate:
+                    player_stats[knocker_name]['knocks_finished_by_teammates'] += 1
+                    if time_to_finish:
+                        player_stats[knocker_name]['time_to_finish_teammate'].append(time_to_finish)
+            elif outcome == 'revived':
+                player_stats[knocker_name]['knocks_revived_by_enemy'] += 1
+
+        # Track instant kills (no knock phase)
+        for event in events:
+            if get_event_type(event) == 'LogPlayerKillV2':
+                dbno_id = event.get('dBNOId')
+                if not dbno_id or dbno_id == -1 or dbno_id not in knock_map:
+                    finisher = event.get('finisher') or {}
+                    finisher_name = finisher.get('name')
+                    if finisher_name:
+                        finisher_team = finisher.get('teamId')
+                        if player_stats[finisher_name]['team_id'] is None and finisher_team is not None:
+                            player_stats[finisher_name]['team_id'] = finisher_team
+                            player_stats[finisher_name]['account_id'] = finisher.get('accountId')
+                        player_stats[finisher_name]['instant_kills'] += 1
+
+        # Build finishing summaries
+        finishing_summaries = []
+        for player_name, stats in player_stats.items():
+            if stats['total_knocks'] == 0 and stats['instant_kills'] == 0:
+                continue
+
+            # Skip if we don't have team info
+            if stats['team_id'] is None:
+                continue
+
+            # Calculate averages
+            finishing_rate = (stats['knocks_converted_self'] / stats['total_knocks'] * 100) if stats['total_knocks'] > 0 else None
+            avg_time_self = sum(stats['time_to_finish_self']) / len(stats['time_to_finish_self']) if stats['time_to_finish_self'] else None
+            avg_time_teammate = sum(stats['time_to_finish_teammate']) / len(stats['time_to_finish_teammate']) if stats['time_to_finish_teammate'] else None
+
+            knock_distances = stats['knock_distances']
+            avg_knock_dist = sum(knock_distances) / len(knock_distances) if knock_distances else None
+            min_knock_dist = min(knock_distances) if knock_distances else None
+            max_knock_dist = max(knock_distances) if knock_distances else None
+
+            # Distance buckets
+            knocks_cqc = sum(1 for d in knock_distances if d < 10)
+            knocks_close = sum(1 for d in knock_distances if 10 <= d < 50)
+            knocks_medium = sum(1 for d in knock_distances if 50 <= d < 100)
+            knocks_long = sum(1 for d in knock_distances if 100 <= d < 200)
+            knocks_very_long = sum(1 for d in knock_distances if d >= 200)
+
+            avg_nearest_teammate = sum(stats['nearest_teammate_distances']) / len(stats['nearest_teammate_distances']) if stats['nearest_teammate_distances'] else None
+            avg_team_spread = sum(stats['team_spreads']) / len(stats['team_spreads']) if stats['team_spreads'] else None
+
+            finishing_summaries.append({
+                'match_id': match_id,
+                'player_name': player_name,
+                'player_account_id': stats['account_id'],
+                'team_id': stats['team_id'],
+                'team_rank': None,  # Would need to get from match_summaries
+                'total_knocks': stats['total_knocks'],
+                'knocks_converted_self': stats['knocks_converted_self'],
+                'knocks_finished_by_teammates': stats['knocks_finished_by_teammates'],
+                'knocks_revived_by_enemy': stats['knocks_revived_by_enemy'],
+                'instant_kills': stats['instant_kills'],
+                'finishing_rate': finishing_rate,
+                'avg_time_to_finish_self': avg_time_self,
+                'avg_time_to_finish_teammate': avg_time_teammate,
+                'avg_knock_distance': avg_knock_dist,
+                'min_knock_distance': min_knock_dist,
+                'max_knock_distance': max_knock_dist,
+                'knocks_cqc_0_10m': knocks_cqc,
+                'knocks_close_10_50m': knocks_close,
+                'knocks_medium_50_100m': knocks_medium,
+                'knocks_long_100_200m': knocks_long,
+                'knocks_very_long_200m_plus': knocks_very_long,
+                'avg_nearest_teammate_distance': avg_nearest_teammate,
+                'avg_team_spread': avg_team_spread,
+                'knocks_with_teammate_within_50m': stats['knocks_with_teammate_50m'],
+                'knocks_with_teammate_within_100m': stats['knocks_with_teammate_100m'],
+                'knocks_isolated_200m_plus': stats['knocks_isolated_200m'],
+                'headshot_knock_count': stats['headshot_knocks'],
+                'wallbang_knock_count': stats['wallbang_knocks'],
+                'vehicle_knock_count': stats['vehicle_knocks'],
+                'map_name': match_data.get('map_name'),
+                'game_mode': match_data.get('game_mode'),
+                'game_type': match_data.get('game_type'),
+                'match_datetime': match_data.get('match_datetime'),
+            })
+
+        return knock_events, finishing_summaries
+
+    def _build_position_timeline(self, events: List[Dict]) -> Dict[str, Dict[str, Dict]]:
+        """Build position timeline from all events with position data."""
+        position_map = defaultdict(dict)
+
+        for event in events:
+            event_type = get_event_type(event)
+            timestamp = event.get('_D')
+
+            if not timestamp:
+                continue
+
+            # Extract positions from different event types
+            positions_to_add = []
+
+            if event_type == 'LogPlayerPosition':
+                char = event.get('character') or {}
+                positions_to_add.append(char)
+
+            elif event_type == 'LogPlayerTakeDamage':
+                attacker = event.get('attacker') or {}
+                victim = event.get('victim') or {}
+                positions_to_add.extend([attacker, victim])
+
+            elif event_type in ['LogPlayerMakeGroggy', 'LogPlayerKillV2']:
+                attacker = event.get('attacker') or {}
+                finisher = event.get('finisher') or {}
+                victim = event.get('victim') or {}
+                positions_to_add.extend([attacker, finisher, victim])
+
+            # Add positions to map
+            for pos_data in positions_to_add:
+                name = pos_data.get('name')
+                team_id = pos_data.get('teamId')
+                location = pos_data.get('location')
+
+                if name and location and team_id is not None:
+                    position_map[timestamp][name] = {
+                        'location': location,
+                        'teamId': team_id
+                    }
+
+        return position_map
+
+    def _find_positions_near_time(
+        self, target_time: str, position_map: Dict, window_seconds: int = 5
+    ) -> Dict[str, Dict]:
+        """Find player positions closest to target timestamp within a time window."""
+        try:
+            target_dt = datetime.fromisoformat(target_time.replace('Z', '+00:00'))
+        except:
+            return {}
+
+        nearby_positions = {}
+
+        for ts, players in position_map.items():
+            try:
+                ts_dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                time_diff = abs((ts_dt - target_dt).total_seconds())
+
+                if time_diff <= window_seconds:
+                    for player_name, data in players.items():
+                        if player_name not in nearby_positions or time_diff < nearby_positions[player_name]['time_diff']:
+                            nearby_positions[player_name] = {
+                                **data,
+                                'time_diff': time_diff,
+                                'timestamp': ts
+                            }
+            except:
+                continue
+
+        return nearby_positions
+
+    def _calculate_distance_3d(self, loc1: Optional[Dict], loc2: Optional[Dict]) -> Optional[float]:
+        """Calculate 3D distance between two locations in meters."""
+        if not loc1 or not loc2:
+            return None
+        try:
+            x1, y1, z1 = loc1['x'], loc1['y'], loc1['z']
+            x2, y2, z2 = loc2['x'], loc2['y'], loc2['z']
+            distance_cm = math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+            return distance_cm / 100  # Convert to meters
+        except (KeyError, TypeError):
+            return None
+
+    def _calculate_variance(self, values: List[float]) -> Optional[float]:
+        """Calculate variance of a list of values."""
+        if not values or len(values) < 2:
+            return None
+        mean = sum(values) / len(values)
+        return sum((x - mean) ** 2 for x in values) / len(values)
+
     def get_stats(self) -> Dict[str, Any]:
         """
         Get worker statistics.
@@ -661,6 +1097,8 @@ class TelemetryProcessingWorker:
         kill_positions: List[Dict],
         weapon_kills: List[Dict],
         damage_events: List[Dict],
+        knock_events: List[Dict],
+        finishing_summaries: List[Dict],
     ) -> None:
         """
         Store extracted events in database.
@@ -671,6 +1109,8 @@ class TelemetryProcessingWorker:
             kill_positions: Kill position events to store
             weapon_kills: Weapon kill events to store
             damage_events: Damage events to store
+            knock_events: Knock events to store
+            finishing_summaries: Finishing summaries to store
         """
         # Insert landings
         if landings:
@@ -700,6 +1140,20 @@ class TelemetryProcessingWorker:
                 f"[{self.worker_id}] Inserted {inserted}/{len(damage_events)} damage events for match {match_id}"
             )
 
+        # Insert knock events
+        if knock_events:
+            inserted = self.database_manager.insert_knock_events(knock_events)
+            self.logger.debug(
+                f"[{self.worker_id}] Inserted {inserted}/{len(knock_events)} knock events for match {match_id}"
+            )
+
+        # Insert finishing summaries
+        if finishing_summaries:
+            inserted = self.database_manager.insert_finishing_summaries(finishing_summaries)
+            self.logger.debug(
+                f"[{self.worker_id}] Inserted {inserted}/{len(finishing_summaries)} finishing summaries for match {match_id}"
+            )
+
         # Update processing flags
         self.database_manager.update_match_processing_flags(
             match_id,
@@ -707,6 +1161,7 @@ class TelemetryProcessingWorker:
             kills_processed=bool(kill_positions),
             weapons_processed=bool(weapon_kills),
             damage_processed=bool(damage_events),
+            finishing_processed=bool(knock_events or finishing_summaries),
         )
 
     def _get_match_game_type(self, match_id: str) -> str:

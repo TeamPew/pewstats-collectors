@@ -4,6 +4,7 @@ Telemetry Processing Worker
 Processes raw telemetry JSON files and extracts events into database tables.
 """
 
+import gc
 import gzip
 import json
 import logging
@@ -14,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..core.database_manager import DatabaseManager
+from ..processors.fight_tracking_processor import FightTrackingProcessor
 from ..metrics import (
     QUEUE_MESSAGES_PROCESSED,
     QUEUE_PROCESSING_DURATION,
@@ -61,6 +63,9 @@ class TelemetryProcessingWorker:
         # Processing counters
         self.processed_count = 0
         self.error_count = 0
+
+        # Initialize fight tracking processor
+        self.fight_processor = FightTrackingProcessor(logger=self.logger)
 
         # Start metrics server
         start_metrics_server(port=metrics_port, worker_name=f"telemetry-processing-{worker_id}")
@@ -154,6 +159,9 @@ class TelemetryProcessingWorker:
                 QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(
                     duration
                 )
+                # Free memory even on skip
+                del events
+                gc.collect()
                 return {"success": True, "skipped": True, "reason": f"game_type={game_type}"}
 
             # Check which event types are already processed
@@ -171,6 +179,8 @@ class TelemetryProcessingWorker:
                 to_process.append("damage")
             if not processing_status.get("finishing_processed"):
                 to_process.append("finishing")
+            if not processing_status.get("fights_processed"):
+                to_process.append("fights")
 
             if to_process:
                 self.logger.info(
@@ -188,6 +198,9 @@ class TelemetryProcessingWorker:
                 QUEUE_PROCESSING_DURATION.labels(queue_name="telemetry_processing").observe(
                     duration
                 )
+                # Free memory even on skip
+                del events
+                gc.collect()
                 return {"success": True, "skipped": True}
 
             # Extract only unprocessed event types
@@ -197,6 +210,8 @@ class TelemetryProcessingWorker:
             damage_events = []
             knock_events = []
             finishing_summaries = []
+            fights = []
+            fight_participants = []
 
             if not processing_status.get("landings_processed"):
                 landings = self.extract_landings(events, match_id, data)
@@ -215,11 +230,17 @@ class TelemetryProcessingWorker:
                     events, match_id, data
                 )
 
+            if not processing_status.get("fights_processed"):
+                fights, fight_participants = self.fight_processor.process_match_fights(
+                    events, match_id, data
+                )
+
             self.logger.debug(
                 f"[{self.worker_id}] Extracted events: {len(landings)} landings, "
                 f"{len(kill_positions)} kill positions, {len(weapon_kills)} weapon kills, "
                 f"{len(damage_events)} damage events, {len(knock_events)} knock events, "
-                f"{len(finishing_summaries)} finishing summaries"
+                f"{len(finishing_summaries)} finishing summaries, {len(fights)} fights, "
+                f"{len(fight_participants)} fight participants"
             )
 
             # Track extracted events
@@ -237,6 +258,12 @@ class TelemetryProcessingWorker:
                 TELEMETRY_EVENTS_EXTRACTED.labels(event_type="finishing_summaries").inc(
                     len(finishing_summaries)
                 )
+            if fights:
+                TELEMETRY_EVENTS_EXTRACTED.labels(event_type="fights").inc(len(fights))
+            if fight_participants:
+                TELEMETRY_EVENTS_EXTRACTED.labels(event_type="fight_participants").inc(
+                    len(fight_participants)
+                )
 
             # Store in database (transaction)
             db_start = time.time()
@@ -248,6 +275,8 @@ class TelemetryProcessingWorker:
                 damage_events,
                 knock_events,
                 finishing_summaries,
+                fights,
+                fight_participants,
             )
             db_duration = time.time() - db_start
             DATABASE_OPERATION_DURATION.labels(
@@ -272,8 +301,14 @@ class TelemetryProcessingWorker:
                 f"[{self.worker_id}] ✅ Successfully processed telemetry for match {match_id} "
                 f"({len(landings)} landings, {len(kill_positions)} kills, "
                 f"{len(weapon_kills)} weapon kills, {len(damage_events)} damage events, "
-                f"{len(knock_events)} knock events, {len(finishing_summaries)} finishing summaries)"
+                f"{len(knock_events)} knock events, {len(finishing_summaries)} finishing summaries, "
+                f"{len(fights)} fights, {len(fight_participants)} fight participants)"
             )
+
+            # Force garbage collection to free memory from large data structures
+            del events, landings, kill_positions, weapon_kills, damage_events
+            del knock_events, finishing_summaries, fights, fight_participants
+            gc.collect()
 
             return {"success": True}
 
@@ -1162,6 +1197,8 @@ class TelemetryProcessingWorker:
         damage_events: List[Dict],
         knock_events: List[Dict],
         finishing_summaries: List[Dict],
+        fights: List[Dict],
+        fight_participants: List[Dict],
     ) -> None:
         """
         Store extracted events in database.
@@ -1174,6 +1211,8 @@ class TelemetryProcessingWorker:
             damage_events: Damage events to store
             knock_events: Knock events to store
             finishing_summaries: Finishing summaries to store
+            fights: Team fights to store
+            fight_participants: Fight participants to store
         """
         # Insert landings
         if landings:
@@ -1217,6 +1256,20 @@ class TelemetryProcessingWorker:
                 f"[{self.worker_id}] Inserted {inserted}/{len(finishing_summaries)} finishing summaries for match {match_id}"
             )
 
+        # Insert fights
+        if fights:
+            inserted = self.database_manager.insert_fights(fights)
+            self.logger.debug(
+                f"[{self.worker_id}] Inserted {inserted}/{len(fights)} fights for match {match_id}"
+            )
+
+        # Insert fight participants
+        if fight_participants:
+            inserted = self.database_manager.insert_fight_participants(fight_participants)
+            self.logger.debug(
+                f"[{self.worker_id}] Inserted {inserted}/{len(fight_participants)} fight participants for match {match_id}"
+            )
+
         # Update processing flags
         self.database_manager.update_match_processing_flags(
             match_id,
@@ -1225,6 +1278,7 @@ class TelemetryProcessingWorker:
             weapons_processed=bool(weapon_kills),
             damage_processed=bool(damage_events),
             finishing_processed=bool(knock_events or finishing_summaries),
+            fights_processed=bool(fights),
         )
 
     def _get_match_game_type(self, match_id: str) -> str:
@@ -1276,7 +1330,8 @@ class TelemetryProcessingWorker:
                     cur.execute(
                         """
                         SELECT landings_processed, kills_processed,
-                               weapons_processed, damage_processed
+                               weapons_processed, damage_processed,
+                               finishing_processed, fights_processed
                         FROM matches
                         WHERE match_id = %s
                         """,
@@ -1291,6 +1346,8 @@ class TelemetryProcessingWorker:
                             "kills_processed": False,
                             "weapons_processed": False,
                             "damage_processed": False,
+                            "finishing_processed": False,
+                            "fights_processed": False,
                         }
 
                     return {
@@ -1298,6 +1355,8 @@ class TelemetryProcessingWorker:
                         "kills_processed": row["kills_processed"] or False,
                         "weapons_processed": row["weapons_processed"] or False,
                         "damage_processed": row["damage_processed"] or False,
+                        "finishing_processed": row.get("finishing_processed", False) or False,
+                        "fights_processed": row.get("fights_processed", False) or False,
                     }
 
         except Exception as e:
@@ -1310,6 +1369,8 @@ class TelemetryProcessingWorker:
                 "kills_processed": False,
                 "weapons_processed": False,
                 "damage_processed": False,
+                "finishing_processed": False,
+                "fights_processed": False,
             }
 
     def _update_match_completion(self, match_id: str) -> None:

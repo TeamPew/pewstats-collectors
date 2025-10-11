@@ -5,6 +5,7 @@ Aggregates raw telemetry events into player statistics tables.
 Processes player_damage_events and weapon_kill_events into player_damage_stats and player_weapon_stats.
 """
 
+import gc
 import logging
 import time
 from datetime import datetime, timezone
@@ -135,6 +136,9 @@ class StatsAggregationWorker:
                 f"[{self.worker_id}] Batch complete: {processed} processed, {errors} errors, "
                 f"{duration:.2f}s"
             )
+
+            # Force garbage collection after batch processing
+            gc.collect()
 
             return {"matches_processed": processed, "errors": errors}
 

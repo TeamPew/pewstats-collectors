@@ -59,8 +59,8 @@ class DatabaseManager:
         user: str,
         password: str,
         port: int = 5432,
-        min_pool_size: int = 2,
-        max_pool_size: int = 10,
+        min_pool_size: int = 1,
+        max_pool_size: int = 3,
         sslmode: str = "disable",
     ):
         """Initialize database manager with connection pooling.
@@ -135,10 +135,25 @@ class DatabaseManager:
                 # Use single connection
                 yield self._conn
         except psycopg.Error as e:
+            # Rollback on error to clean up transaction state
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass  # Already in error state
             raise DatabaseError(f"Database connection error: {e}")
         finally:
+            # Ensure connection is in clean state before returning to pool
             if conn and HAS_POOL and self._pool:
-                self._pool.putconn(conn)
+                try:
+                    # If we're still in a transaction block, rollback
+                    if conn.info.transaction_status == psycopg.pq.TransactionStatus.INTRANS:
+                        conn.rollback()
+                        logger.debug("Rolled back uncommitted transaction before returning connection to pool")
+                except Exception as e:
+                    logger.warning(f"Error cleaning up connection state: {e}")
+                finally:
+                    self._pool.putconn(conn)
 
     def disconnect(self) -> None:
         """Close all connections in pool or single connection."""
@@ -839,6 +854,7 @@ class DatabaseManager:
         weapons_processed: Optional[bool] = None,
         damage_processed: Optional[bool] = None,
         finishing_processed: Optional[bool] = None,
+        fights_processed: Optional[bool] = None,
     ) -> bool:
         """Update match processing flags.
 
@@ -852,6 +868,7 @@ class DatabaseManager:
             weapons_processed: Weapons processed flag
             damage_processed: Damage processed flag
             finishing_processed: Finishing metrics processed flag
+            fights_processed: Fight tracking processed flag
 
         Returns:
             True if match was updated
@@ -887,6 +904,10 @@ class DatabaseManager:
             if finishing_processed is not None:
                 updates.append("finishing_processed = %(finishing_processed)s")
                 params["finishing_processed"] = finishing_processed
+
+            if fights_processed is not None:
+                updates.append("fights_processed = %(fights_processed)s")
+                params["fights_processed"] = fights_processed
 
             if not updates:
                 return False
@@ -1060,3 +1081,89 @@ class DatabaseManager:
 
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to insert finishing summaries: {e}")
+
+    def insert_fights(self, fights: List[Dict[str, Any]]) -> int:
+        """Insert team fights in bulk.
+
+        Args:
+            fights: List of fight dictionaries
+
+        Returns:
+            Number of fights inserted
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not fights:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO team_fights (
+                    match_id, fight_start_time, fight_end_time, duration_seconds,
+                    team_ids, primary_team_1, primary_team_2, third_party_teams,
+                    total_knocks, total_kills, total_damage, total_damage_events, total_attack_events,
+                    outcome, winning_team_id, loser_team_id, team_outcomes, fight_reason,
+                    fight_center_x, fight_center_y, fight_spread_radius,
+                    map_name, game_mode, game_type, match_datetime
+                ) VALUES (
+                    %(match_id)s, %(fight_start_time)s, %(fight_end_time)s, %(duration_seconds)s,
+                    %(team_ids)s, %(primary_team_1)s, %(primary_team_2)s, %(third_party_teams)s,
+                    %(total_knocks)s, %(total_kills)s, %(total_damage)s, %(total_damage_events)s, %(total_attack_events)s,
+                    %(outcome)s, %(winning_team_id)s, %(loser_team_id)s, %(team_outcomes)s, %(fight_reason)s,
+                    %(fight_center_x)s, %(fight_center_y)s, %(fight_spread_radius)s,
+                    %(map_name)s, %(game_mode)s, %(game_type)s, %(match_datetime)s
+                )
+                ON CONFLICT DO NOTHING
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, fights)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert fights: {e}")
+
+    def insert_fight_participants(self, participants: List[Dict[str, Any]]) -> int:
+        """Insert fight participants in bulk.
+
+        Args:
+            participants: List of fight participant dictionaries
+
+        Returns:
+            Number of participants inserted
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not participants:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO fight_participants (
+                    match_id, player_name, player_account_id, team_id,
+                    knocks_dealt, kills_dealt, damage_dealt, damage_taken, attacks_made,
+                    position_center_x, position_center_y,
+                    was_knocked, was_killed, survived,
+                    knocked_at, killed_at, match_datetime
+                ) VALUES (
+                    %(match_id)s, %(player_name)s, %(player_account_id)s, %(team_id)s,
+                    %(knocks_dealt)s, %(kills_dealt)s, %(damage_dealt)s, %(damage_taken)s, %(attacks_made)s,
+                    %(position_center_x)s, %(position_center_y)s,
+                    %(was_knocked)s, %(was_killed)s, %(survived)s,
+                    %(knocked_at)s, %(killed_at)s, %(match_datetime)s
+                )
+                ON CONFLICT DO NOTHING
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, participants)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert fight participants: {e}")

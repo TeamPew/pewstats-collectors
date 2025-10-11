@@ -149,7 +149,9 @@ class DatabaseManager:
                     # If we're still in a transaction block, rollback
                     if conn.info.transaction_status == psycopg.pq.TransactionStatus.INTRANS:
                         conn.rollback()
-                        logger.debug("Rolled back uncommitted transaction before returning connection to pool")
+                        logger.debug(
+                            "Rolled back uncommitted transaction before returning connection to pool"
+                        )
                 except Exception as e:
                     logger.warning(f"Error cleaning up connection state: {e}")
                 finally:

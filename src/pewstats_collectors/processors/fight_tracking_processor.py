@@ -47,7 +47,7 @@ class FightTrackingProcessor:
 
     def process_match_fights(
         self, events: List[Dict], match_id: str, match_data: Dict[str, Any]
-    ) -> Tuple[List[Dict], List[Dict]]:
+    ) -> List[Dict]:
         """
         Process fight tracking for a match.
 
@@ -57,7 +57,7 @@ class FightTrackingProcessor:
             match_data: Match metadata (map_name, game_mode, etc.)
 
         Returns:
-            Tuple of (fights, fight_participants)
+            List of fight records, each containing a 'participants' key with participant data
         """
         if self.logger:
             self.logger.debug(f"Processing fights for match {match_id} with {len(events)} events")
@@ -66,11 +66,10 @@ class FightTrackingProcessor:
         engagements = self._detect_combat_engagements(events, match_id)
 
         if not engagements:
-            return [], []
+            return []
 
         # Filter for fights and enrich with statistics
         fights = []
-        all_participants = []
 
         for engagement in engagements:
             # Enrich with full statistics
@@ -118,9 +117,8 @@ class FightTrackingProcessor:
                     "match_datetime": match_data.get("match_datetime"),
                 }
 
-                fights.append(fight_record)
-
-                # Build participant records
+                # Build participant records for this fight
+                participants = []
                 for player_name, stats in engagement["player_stats"].items():
                     if stats["team_id"] is None:
                         continue
@@ -153,15 +151,20 @@ class FightTrackingProcessor:
                         "match_datetime": match_data.get("match_datetime"),
                     }
 
-                    all_participants.append(participant_record)
+                    participants.append(participant_record)
+
+                # Add participants to fight record
+                fight_record["participants"] = participants
+                fights.append(fight_record)
 
         if self.logger:
+            total_participants = sum(len(f.get("participants", [])) for f in fights)
             self.logger.debug(
-                f"Detected {len(fights)} fights with {len(all_participants)} participants "
+                f"Detected {len(fights)} fights with {total_participants} participants "
                 f"from {len(engagements)} engagements"
             )
 
-        return fights, all_participants
+        return fights
 
     def _detect_combat_engagements(self, events: List[Dict], match_id: str) -> List[Dict]:
         """Detect all potential combat engagements between teams."""

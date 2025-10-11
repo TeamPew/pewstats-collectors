@@ -1128,11 +1128,70 @@ class DatabaseManager:
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to insert fights: {e}")
 
+    def insert_fight_and_get_id(self, fight: Dict[str, Any]) -> int:
+        """Insert a single team fight and return its ID.
+
+        Args:
+            fight: Fight dictionary
+
+        Returns:
+            The ID of the inserted fight
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        try:
+            query = sql.SQL("""
+                INSERT INTO team_fights (
+                    match_id, fight_start_time, fight_end_time, duration_seconds,
+                    team_ids, primary_team_1, primary_team_2, third_party_teams,
+                    total_knocks, total_kills, total_damage, total_damage_events, total_attack_events,
+                    outcome, winning_team_id, loser_team_id, team_outcomes, fight_reason,
+                    fight_center_x, fight_center_y, fight_spread_radius,
+                    map_name, game_mode, game_type, match_datetime
+                ) VALUES (
+                    %(match_id)s, %(fight_start_time)s, %(fight_end_time)s, %(duration_seconds)s,
+                    %(team_ids)s, %(primary_team_1)s, %(primary_team_2)s, %(third_party_teams)s,
+                    %(total_knocks)s, %(total_kills)s, %(total_damage)s, %(total_damage_events)s, %(total_attack_events)s,
+                    %(outcome)s, %(winning_team_id)s, %(loser_team_id)s, %(team_outcomes)s, %(fight_reason)s,
+                    %(fight_center_x)s, %(fight_center_y)s, %(fight_spread_radius)s,
+                    %(map_name)s, %(game_mode)s, %(game_type)s, %(match_datetime)s
+                )
+                ON CONFLICT DO NOTHING
+                RETURNING id
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, fight)
+                    result = cur.fetchone()
+                    conn.commit()
+
+                    if result:
+                        return result["id"]
+                    else:
+                        # Conflict occurred - fetch existing fight ID
+                        fetch_query = sql.SQL("""
+                            SELECT id FROM team_fights
+                            WHERE match_id = %(match_id)s
+                              AND fight_start_time = %(fight_start_time)s
+                              AND fight_end_time = %(fight_end_time)s
+                        """)
+                        cur.execute(fetch_query, fight)
+                        existing = cur.fetchone()
+                        if existing:
+                            return existing["id"]
+                        else:
+                            raise DatabaseError("Failed to retrieve fight ID after conflict")
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert fight and get ID: {e}")
+
     def insert_fight_participants(self, participants: List[Dict[str, Any]]) -> int:
         """Insert fight participants in bulk.
 
         Args:
-            participants: List of fight participant dictionaries
+            participants: List of fight participant dictionaries (must include fight_id)
 
         Returns:
             Number of participants inserted
@@ -1146,13 +1205,13 @@ class DatabaseManager:
         try:
             query = sql.SQL("""
                 INSERT INTO fight_participants (
-                    match_id, player_name, player_account_id, team_id,
+                    fight_id, match_id, player_name, player_account_id, team_id,
                     knocks_dealt, kills_dealt, damage_dealt, damage_taken, attacks_made,
                     position_center_x, position_center_y,
                     was_knocked, was_killed, survived,
                     knocked_at, killed_at, match_datetime
                 ) VALUES (
-                    %(match_id)s, %(player_name)s, %(player_account_id)s, %(team_id)s,
+                    %(fight_id)s, %(match_id)s, %(player_name)s, %(player_account_id)s, %(team_id)s,
                     %(knocks_dealt)s, %(kills_dealt)s, %(damage_dealt)s, %(damage_taken)s, %(attacks_made)s,
                     %(position_center_x)s, %(position_center_y)s,
                     %(was_knocked)s, %(was_killed)s, %(survived)s,

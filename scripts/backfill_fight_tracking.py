@@ -92,7 +92,7 @@ def process_single_match(match_data: Dict) -> Tuple[str, bool, Optional[str], in
 
         # Process fights
         processor = FightTrackingProcessor(logger=None)
-        fights, fight_participants = processor.process_match_fights(events, match_id, match_data)
+        fights = processor.process_match_fights(events, match_id, match_data)
 
         # Insert fights and participants
         conn = get_db_connection()
@@ -107,9 +107,13 @@ def process_single_match(match_data: Dict) -> Tuple[str, bool, Optional[str], in
                     conn.commit()
                     return (match_id, True, None, 0, 0)
 
-                # Insert fights one by one and get their IDs
-                fight_ids = []
+                # Insert fights one by one with their participants
+                total_participants = 0
                 for fight in fights:
+                    # Extract participants from fight record
+                    participants = fight.pop("participants", [])
+
+                    # Insert fight and get ID
                     fight_insert_sql = """
                         INSERT INTO team_fights (
                             match_id, fight_start_time, fight_end_time, duration_seconds,
@@ -126,15 +130,55 @@ def process_single_match(match_data: Dict) -> Tuple[str, bool, Optional[str], in
                             %(fight_center_x)s, %(fight_center_y)s, %(fight_spread_radius)s,
                             %(map_name)s, %(game_mode)s, %(game_type)s, %(match_datetime)s
                         )
+                        ON CONFLICT DO NOTHING
                         RETURNING id
                     """
                     cur.execute(fight_insert_sql, fight)
-                    fight_id = cur.fetchone()["id"]
-                    fight_ids.append((fight_id, fight))
+                    result = cur.fetchone()
 
-                # For now, skip participants - they would need to be properly mapped to fight_ids
-                # which requires matching based on timing. We can add a separate backfill for participants later.
-                # The fights themselves contain all the key statistics.
+                    # Get fight_id (handle conflict case)
+                    if result:
+                        fight_id = result["id"]
+                    else:
+                        # Conflict - fetch existing fight_id
+                        cur.execute(
+                            """
+                            SELECT id FROM team_fights
+                            WHERE match_id = %(match_id)s
+                              AND fight_start_time = %(fight_start_time)s
+                              AND fight_end_time = %(fight_end_time)s
+                        """,
+                            fight,
+                        )
+                        existing = cur.fetchone()
+                        if existing:
+                            fight_id = existing["id"]
+                        else:
+                            continue  # Skip if we can't get ID
+
+                    # Insert participants with fight_id
+                    if participants:
+                        for participant in participants:
+                            participant["fight_id"] = fight_id
+
+                        participant_insert_sql = """
+                            INSERT INTO fight_participants (
+                                fight_id, match_id, player_name, player_account_id, team_id,
+                                knocks_dealt, kills_dealt, damage_dealt, damage_taken, attacks_made,
+                                position_center_x, position_center_y,
+                                was_knocked, was_killed, survived,
+                                knocked_at, killed_at, match_datetime
+                            ) VALUES (
+                                %(fight_id)s, %(match_id)s, %(player_name)s, %(player_account_id)s, %(team_id)s,
+                                %(knocks_dealt)s, %(kills_dealt)s, %(damage_dealt)s, %(damage_taken)s, %(attacks_made)s,
+                                %(position_center_x)s, %(position_center_y)s,
+                                %(was_knocked)s, %(was_killed)s, %(survived)s,
+                                %(knocked_at)s, %(killed_at)s, %(match_datetime)s
+                            )
+                            ON CONFLICT DO NOTHING
+                        """
+                        cur.executemany(participant_insert_sql, participants)
+                        total_participants += cur.rowcount
 
                 # Mark as processed
                 cur.execute(
@@ -142,7 +186,7 @@ def process_single_match(match_data: Dict) -> Tuple[str, bool, Optional[str], in
                 )
 
             conn.commit()
-            return (match_id, True, None, len(fights), 0)
+            return (match_id, True, None, len(fights), total_participants)
 
         except Exception as e:
             conn.rollback()

@@ -211,7 +211,6 @@ class TelemetryProcessingWorker:
             knock_events = []
             finishing_summaries = []
             fights = []
-            fight_participants = []
 
             if not processing_status.get("landings_processed"):
                 landings = self.extract_landings(events, match_id, data)
@@ -231,16 +230,15 @@ class TelemetryProcessingWorker:
                 )
 
             if not processing_status.get("fights_processed"):
-                fights, fight_participants = self.fight_processor.process_match_fights(
-                    events, match_id, data
-                )
+                fights = self.fight_processor.process_match_fights(events, match_id, data)
 
+            total_participants = sum(len(f.get("participants", [])) for f in fights)
             self.logger.debug(
                 f"[{self.worker_id}] Extracted events: {len(landings)} landings, "
                 f"{len(kill_positions)} kill positions, {len(weapon_kills)} weapon kills, "
                 f"{len(damage_events)} damage events, {len(knock_events)} knock events, "
                 f"{len(finishing_summaries)} finishing summaries, {len(fights)} fights, "
-                f"{len(fight_participants)} fight participants"
+                f"{total_participants} fight participants"
             )
 
             # Track extracted events
@@ -260,9 +258,8 @@ class TelemetryProcessingWorker:
                 )
             if fights:
                 TELEMETRY_EVENTS_EXTRACTED.labels(event_type="fights").inc(len(fights))
-            if fight_participants:
                 TELEMETRY_EVENTS_EXTRACTED.labels(event_type="fight_participants").inc(
-                    len(fight_participants)
+                    total_participants
                 )
 
             # Store in database (transaction)
@@ -276,7 +273,6 @@ class TelemetryProcessingWorker:
                 knock_events,
                 finishing_summaries,
                 fights,
-                fight_participants,
             )
             db_duration = time.time() - db_start
             DATABASE_OPERATION_DURATION.labels(
@@ -302,12 +298,12 @@ class TelemetryProcessingWorker:
                 f"({len(landings)} landings, {len(kill_positions)} kills, "
                 f"{len(weapon_kills)} weapon kills, {len(damage_events)} damage events, "
                 f"{len(knock_events)} knock events, {len(finishing_summaries)} finishing summaries, "
-                f"{len(fights)} fights, {len(fight_participants)} fight participants)"
+                f"{len(fights)} fights, {total_participants} fight participants)"
             )
 
             # Force garbage collection to free memory from large data structures
             del events, landings, kill_positions, weapon_kills, damage_events
-            del knock_events, finishing_summaries, fights, fight_participants
+            del knock_events, finishing_summaries, fights
             gc.collect()
 
             return {"success": True}
@@ -1198,7 +1194,6 @@ class TelemetryProcessingWorker:
         knock_events: List[Dict],
         finishing_summaries: List[Dict],
         fights: List[Dict],
-        fight_participants: List[Dict],
     ) -> None:
         """
         Store extracted events in database.
@@ -1211,8 +1206,7 @@ class TelemetryProcessingWorker:
             damage_events: Damage events to store
             knock_events: Knock events to store
             finishing_summaries: Finishing summaries to store
-            fights: Team fights to store
-            fight_participants: Fight participants to store
+            fights: Team fights to store (includes participants in each fight record)
         """
         # Insert landings
         if landings:
@@ -1256,18 +1250,26 @@ class TelemetryProcessingWorker:
                 f"[{self.worker_id}] Inserted {inserted}/{len(finishing_summaries)} finishing summaries for match {match_id}"
             )
 
-        # Insert fights
+        # Insert fights and participants
         if fights:
-            inserted = self.database_manager.insert_fights(fights)
-            self.logger.debug(
-                f"[{self.worker_id}] Inserted {inserted}/{len(fights)} fights for match {match_id}"
-            )
+            # Insert fights one by one to get fight_id for participants
+            total_participants = 0
+            for fight in fights:
+                # Extract participants before inserting fight
+                participants = fight.pop("participants", [])
 
-        # Insert fight participants
-        if fight_participants:
-            inserted = self.database_manager.insert_fight_participants(fight_participants)
+                # Insert fight and get ID
+                fight_id = self.database_manager.insert_fight_and_get_id(fight)
+
+                # Add fight_id to each participant and insert
+                if participants:
+                    for participant in participants:
+                        participant["fight_id"] = fight_id
+                    inserted = self.database_manager.insert_fight_participants(participants)
+                    total_participants += inserted
+
             self.logger.debug(
-                f"[{self.worker_id}] Inserted {inserted}/{len(fight_participants)} fight participants for match {match_id}"
+                f"[{self.worker_id}] Inserted {len(fights)} fights with {total_participants} participants for match {match_id}"
             )
 
         # Update processing flags

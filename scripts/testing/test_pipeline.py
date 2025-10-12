@@ -11,7 +11,6 @@ Tests the complete pipeline with 1-2 matches:
 This script tests with existing telemetry data to validate the pipeline works.
 """
 
-import os
 import sys
 import logging
 from pathlib import Path
@@ -20,9 +19,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from pewstats_collectors.core.database_manager import DatabaseManager
-from pewstats_collectors.core.pubg_client import PUBGClient
-from pewstats_collectors.core.rabbitmq_publisher import RabbitMQPublisher
-from pewstats_collectors.workers.match_summary_worker import MatchSummaryWorker
 from pewstats_collectors.workers.telemetry_processing_worker import TelemetryProcessingWorker
 
 # Setup logging
@@ -125,7 +121,7 @@ def main():
             result = worker.process_message(message)
 
             if result["success"]:
-                logger.info(f"✅ Telemetry processing succeeded!")
+                logger.info("✅ Telemetry processing succeeded!")
 
                 # Check what was inserted
                 query = "SELECT COUNT(*) as count FROM landings WHERE match_id = %s"

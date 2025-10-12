@@ -117,7 +117,9 @@ def backfill_damage_stats(db_manager: DatabaseManager, batch_size: int = 1000) -
 
                 conn.commit()
 
-                logger.info(f"Damage stats backfill complete: {rows_affected} records created/updated")
+                logger.info(
+                    f"Damage stats backfill complete: {rows_affected} records created/updated"
+                )
                 return rows_affected
 
     except Exception as e:
@@ -246,7 +248,9 @@ def backfill_weapon_stats(db_manager: DatabaseManager, batch_size: int = 1000) -
 
                 conn.commit()
 
-                logger.info(f"Weapon stats backfill complete: {rows_affected} records created/updated")
+                logger.info(
+                    f"Weapon stats backfill complete: {rows_affected} records created/updated"
+                )
                 return rows_affected
 
     except Exception as e:
@@ -310,15 +314,9 @@ def main():
         default=os.getenv("POSTGRES_PASSWORD", ""),
         help="Database password",
     )
-    parser.add_argument(
-        "--batch-size", type=int, default=1000, help="Batch size for processing"
-    )
-    parser.add_argument(
-        "--damage-only", action="store_true", help="Only backfill damage stats"
-    )
-    parser.add_argument(
-        "--weapon-only", action="store_true", help="Only backfill weapon stats"
-    )
+    parser.add_argument("--batch-size", type=int, default=1000, help="Batch size for processing")
+    parser.add_argument("--damage-only", action="store_true", help="Only backfill damage stats")
+    parser.add_argument("--weapon-only", action="store_true", help="Only backfill weapon stats")
     parser.add_argument(
         "--skip-marking", action="store_true", help="Skip marking matches as aggregated"
     )

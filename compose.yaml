@@ -222,6 +222,46 @@ services:
     networks:
       - pewstats-network
 
+  # Ranked Stats Collector - Collects ranked stats from PUBG API
+  # Runs every 3 hours, offset by 15 minutes to avoid overlap with match-discovery
+  ranked-stats-collector:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.services.ranked_stats_collector", "--continuous", "--interval", "10800", "--initial-delay", "900"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # PUBG API configuration
+      - PUBG_API_KEYS=${PUBG_API_KEYS}
+      - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
 networks:
   pewstats-network:
     external: true

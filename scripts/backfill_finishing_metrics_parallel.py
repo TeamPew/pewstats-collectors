@@ -10,17 +10,15 @@ import logging
 import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime
 
 # Add src directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from pewstats_collectors.core.database_manager import DatabaseManager
 from pewstats_collectors.workers.telemetry_processing_worker import TelemetryProcessingWorker
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(processName)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(processName)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -28,11 +26,11 @@ logger = logging.getLogger(__name__)
 def get_matches_needing_finishing_processing(limit: int = None) -> list:
     """Get matches that need finishing metrics processing."""
     db_manager = DatabaseManager(
-        host=os.getenv('POSTGRES_HOST', 'localhost'),
-        port=int(os.getenv('POSTGRES_PORT', '5432')),
-        dbname=os.getenv('POSTGRES_DB', 'pewstats_production'),
-        user=os.getenv('POSTGRES_USER', 'pewstats_prod_user'),
-        password=os.getenv('POSTGRES_PASSWORD'),
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        port=int(os.getenv("POSTGRES_PORT", "5432")),
+        dbname=os.getenv("POSTGRES_DB", "pewstats_production"),
+        user=os.getenv("POSTGRES_USER", "pewstats_prod_user"),
+        password=os.getenv("POSTGRES_PASSWORD"),
     )
 
     query = """
@@ -58,15 +56,15 @@ def get_matches_needing_finishing_processing(limit: int = None) -> list:
 
 def process_single_match(match_data: dict, worker_id: int) -> tuple:
     """Process a single match for finishing metrics (runs in separate process)."""
-    match_id = match_data['match_id']
+    match_id = match_data["match_id"]
 
     # Initialize database manager for this worker
     db_manager = DatabaseManager(
-        host=os.getenv('POSTGRES_HOST', 'localhost'),
-        port=int(os.getenv('POSTGRES_PORT', '5432')),
-        dbname=os.getenv('POSTGRES_DB', 'pewstats_production'),
-        user=os.getenv('POSTGRES_USER', 'pewstats_prod_user'),
-        password=os.getenv('POSTGRES_PASSWORD'),
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        port=int(os.getenv("POSTGRES_PORT", "5432")),
+        dbname=os.getenv("POSTGRES_DB", "pewstats_production"),
+        user=os.getenv("POSTGRES_USER", "pewstats_prod_user"),
+        password=os.getenv("POSTGRES_PASSWORD"),
     )
 
     # Initialize worker for this process
@@ -74,7 +72,7 @@ def process_single_match(match_data: dict, worker_id: int) -> tuple:
         database_manager=db_manager,
         worker_id=f"parallel-worker-{worker_id}",
         logger=logging.getLogger(f"worker-{worker_id}"),
-        metrics_port=9095 + worker_id  # Different port for each worker
+        metrics_port=9095 + worker_id,  # Different port for each worker
     )
 
     # Construct telemetry file path
@@ -90,30 +88,36 @@ def process_single_match(match_data: dict, worker_id: int) -> tuple:
     message_data = {
         "match_id": match_id,
         "file_path": file_path,
-        "map_name": match_data['map_name'],
-        "game_mode": match_data['game_mode'],
-        "game_type": match_data['game_type'],
-        "match_datetime": match_data['match_datetime']
+        "map_name": match_data["map_name"],
+        "game_mode": match_data["game_mode"],
+        "game_type": match_data["game_type"],
+        "match_datetime": match_data["match_datetime"],
     }
 
     try:
         result = worker.process_message(message_data)
         db_manager.disconnect()
 
-        if result.get('success'):
+        if result.get("success"):
             return (match_id, True, None)
         else:
-            return (match_id, False, result.get('error', 'Unknown error'))
+            return (match_id, False, result.get("error", "Unknown error"))
     except Exception as e:
         db_manager.disconnect()
         return (match_id, False, str(e))
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Parallel backfill finishing metrics for historical matches')
-    parser.add_argument('--limit', type=int, default=None, help='Number of matches to process (default: all)')
-    parser.add_argument('--workers', type=int, default=4, help='Number of parallel workers (default: 4)')
-    parser.add_argument('--dry-run', action='store_true', help='List matches without processing')
+    parser = argparse.ArgumentParser(
+        description="Parallel backfill finishing metrics for historical matches"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Number of matches to process (default: all)"
+    )
+    parser.add_argument(
+        "--workers", type=int, default=4, help="Number of parallel workers (default: 4)"
+    )
+    parser.add_argument("--dry-run", action="store_true", help="List matches without processing")
 
     args = parser.parse_args()
 
@@ -126,7 +130,9 @@ def main():
     if args.dry_run:
         logger.info("Dry run mode - listing first 20 matches:")
         for i, match in enumerate(matches[:20], 1):
-            logger.info(f"  {i}. {match['match_id']} - {match['map_name']} {match['game_mode']} ({match['match_datetime']})")
+            logger.info(
+                f"  {i}. {match['match_id']} - {match['map_name']} {match['game_mode']} ({match['match_datetime']})"
+            )
         if len(matches) > 20:
             logger.info(f"  ... and {len(matches) - 20} more")
         return
@@ -160,12 +166,14 @@ def main():
 
             # Progress update every 50 matches
             if i % 50 == 0:
-                logger.info(f"Progress: {i}/{len(matches)} matches processed ({success_count} success, {error_count} errors)")
+                logger.info(
+                    f"Progress: {i}/{len(matches)} matches processed ({success_count} success, {error_count} errors)"
+                )
 
     # Final summary
-    logger.info(f"\n{'='*80}")
-    logger.info(f"Parallel backfill complete!")
-    logger.info(f"{'='*80}")
+    logger.info(f"\n{'=' * 80}")
+    logger.info("Parallel backfill complete!")
+    logger.info(f"{'=' * 80}")
     logger.info(f"Total matches processed: {success_count + error_count}")
     logger.info(f"Successful: {success_count}")
     logger.info(f"Errors: {error_count}")
@@ -178,5 +186,5 @@ def main():
             logger.info(f"  - {match_id}: {error}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

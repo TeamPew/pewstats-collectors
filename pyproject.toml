@@ -33,6 +33,12 @@ dev = [
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["pewstats_collectors", "pewstats_collectors.config", "pewstats_collectors.core", "pewstats_collectors.models", "pewstats_collectors.processors", "pewstats_collectors.services", "pewstats_collectors.utils", "pewstats_collectors.workers"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

@@ -5,6 +5,7 @@ Processes match discovery messages from RabbitMQ, fetches detailed match data fr
 extracts participant statistics, stores them in the database, and forwards to telemetry queue.
 """
 
+import gc
 import logging
 import time
 from datetime import datetime, timezone
@@ -242,6 +243,10 @@ class MatchSummaryWorker:
             DATABASE_OPERATIONS.labels(
                 operation="insert", table="match_summaries", status="success"
             ).inc(inserted_count)
+
+            # Force garbage collection to free memory
+            del match_data, summaries
+            gc.collect()
 
             return {"success": True}
 

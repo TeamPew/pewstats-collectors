@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.9.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.8.0...v1.9.0) (2025-10-12)
+
+
+### Features
+
+* add fight tracking v2 implementation with multi-core backfill ([41d5827](https://github.com/TeamPew/pewstats-collectors/commit/41d58279292d567d049edba7ab3232458525653a))
+
+
+### Bug Fixes
+
+* properly associate fight_participants with fight_id ([a069e42](https://github.com/TeamPew/pewstats-collectors/commit/a069e425059cfcbf08e663f9d6cda85d4544f6d9))
+* resolve test failures and formatting issues ([c775fe1](https://github.com/TeamPew/pewstats-collectors/commit/c775fe11cda4d81c71a2d6f548c30dc931cd3296))
+
+
+### Performance Improvements
+
+* optimize memory usage in workers and database connections ([921a38d](https://github.com/TeamPew/pewstats-collectors/commit/921a38dc74c03a7a7396910a6a1ae445963098c6))
+
 ## [1.8.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.7.1...v1.8.0) (2025-10-10)
 
 

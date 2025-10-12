@@ -13,7 +13,7 @@ PUBG API Endpoint: GET /shards/{platform}/seasons/{seasonId}/gameMode/{gameMode}
 import logging
 import time
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Optional
 import argparse
 
 from pewstats_collectors.core.api_key_manager import APIKeyManager

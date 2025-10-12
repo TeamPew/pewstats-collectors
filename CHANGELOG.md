@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.10.0...v1.10.1) (2025-10-12)
+
+
+### Bug Fixes
+
+* use prometheus_client directly instead of non-existent metric wr… ([2af111a](https://github.com/TeamPew/pewstats-collectors/commit/2af111a07fa86abac698c0183a7557e474522b14))
+* use prometheus_client directly instead of non-existent metric wrappers ([253549f](https://github.com/TeamPew/pewstats-collectors/commit/253549fa00e010952a004a84113071bf33040b28))
+
 ## [1.10.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.9.0...v1.10.0) (2025-10-12)
 
 

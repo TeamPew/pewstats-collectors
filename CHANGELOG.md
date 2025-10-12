@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.9.0...v1.10.0) (2025-10-12)
+
+
+### Features
+
+* add ranked stats collector service ([f6a38c1](https://github.com/TeamPew/pewstats-collectors/commit/f6a38c11b590f2d9e420b1d0967dcdad32626a9f))
+
+
+### Bug Fixes
+
+* remove unused Set import from ranked_stats_collector ([03b44da](https://github.com/TeamPew/pewstats-collectors/commit/03b44da7d071677934ac42a44b385600b19138a7))
+
 ## [1.9.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.8.0...v1.9.0) (2025-10-12)
 
 

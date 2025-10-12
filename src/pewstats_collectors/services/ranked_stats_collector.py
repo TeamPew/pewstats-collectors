@@ -18,14 +18,26 @@ import argparse
 
 from pewstats_collectors.core.api_key_manager import APIKeyManager
 from pewstats_collectors.core.database_manager import DatabaseManager
-from pewstats_collectors.metrics import (
-    increment_counter,
-    observe_histogram,
-    set_gauge,
-    start_http_server,
-)
+from prometheus_client import Counter, Histogram, Gauge, start_http_server
 
 logger = logging.getLogger(__name__)
+
+# Metrics for ranked stats collection
+RANKED_STATS_COLLECTION = Counter(
+    "ranked_stats_collection_total",
+    "Total ranked stats collection cycles",
+    ["status"],  # success, error
+)
+
+RANKED_STATS_COLLECTION_DURATION = Histogram(
+    "ranked_stats_collection_duration_seconds",
+    "Duration of ranked stats collection cycle",
+    buckets=[60, 300, 600, 900, 1200, 1800],
+)
+
+RANKED_STATS_LAST_COLLECTION = Gauge(
+    "ranked_stats_last_collection_timestamp", "Unix timestamp of last collection"
+)
 
 
 class RankedStatsCollector:
@@ -122,19 +134,15 @@ class RankedStatsCollector:
             logger.info(f"Ranked stats collection completed in {duration:.2f}s. Stats: {stats}")
 
             # Record metrics
-            increment_counter(
-                "ranked_stats_collection_total",
-                stats["stats_updated"],
-                {"status": "success"},
-            )
-            observe_histogram("ranked_stats_collection_duration_seconds", duration)
-            set_gauge("ranked_stats_last_collection_timestamp", time.time())
+            RANKED_STATS_COLLECTION.labels(status="success").inc()
+            RANKED_STATS_COLLECTION_DURATION.observe(duration)
+            RANKED_STATS_LAST_COLLECTION.set(time.time())
 
             return stats
 
         except Exception as e:
             logger.error(f"Failed to collect ranked stats: {e}", exc_info=True)
-            increment_counter("ranked_stats_collection_total", 1, {"status": "error"})
+            RANKED_STATS_COLLECTION.labels(status="error").inc()
             stats["errors"] += 1
             return stats
 

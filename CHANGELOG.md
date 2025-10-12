@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.10.2...v1.10.3) (2025-10-12)
+
+
+### Bug Fixes
+
+* use DatabaseManager.execute_query instead of non-existent fetch_… ([502c868](https://github.com/TeamPew/pewstats-collectors/commit/502c8686f3d99af7587d1a23e94799b89de1bde1))
+* use DatabaseManager.execute_query instead of non-existent fetch_one/fetch_all ([5566b6a](https://github.com/TeamPew/pewstats-collectors/commit/5566b6a97d003c02b46e3e1dea1325b0717bc792))
+
 ## [1.10.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.10.1...v1.10.2) (2025-10-12)
 
 

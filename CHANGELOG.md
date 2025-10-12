@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.10.1...v1.10.2) (2025-10-12)
+
+
+### Bug Fixes
+
+* correct DatabaseManager parameter from 'database' to 'dbname' ([cdb79c2](https://github.com/TeamPew/pewstats-collectors/commit/cdb79c2c8f6248eae1222d4258ab1100eb703004))
+* correct DatabaseManager parameter from 'database' to 'dbname' ([a8a0a6c](https://github.com/TeamPew/pewstats-collectors/commit/a8a0a6ced043dacb75f3b0f28cf3b1f4e09eac5b))
+
 ## [1.10.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.10.0...v1.10.1) (2025-10-12)
 
 

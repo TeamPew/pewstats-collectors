@@ -224,14 +224,15 @@ class RankedStatsCollector:
                 WHERE is_current = true AND platform = %s
                 LIMIT 1
             """
-            result = self.db.fetch_one(query, (self.platform,))
+            results = self.db.execute_query(query, (self.platform,))
 
-            if result:
+            if results and len(results) > 0:
+                result = results[0]
                 return {
-                    "id": result[0],
-                    "display_name": result[1],
-                    "season_number": result[2],
-                    "platform": result[3],
+                    "id": result["id"],
+                    "display_name": result["display_name"],
+                    "season_number": result["season_number"],
+                    "platform": result["platform"],
                 }
 
             # If no current season in DB, fetch from API
@@ -261,9 +262,15 @@ class RankedStatsCollector:
                 WHERE platform = %s
                 ORDER BY player_name
             """
-            results = self.db.fetch_all(query, (self.platform,))
+            results = self.db.execute_query(query, (self.platform,))
 
-            players = [{"player_id": row[0], "player_name": row[1]} for row in results]
+            if not results:
+                return []
+
+            players = [
+                {"player_id": row["player_id"], "player_name": row["player_name"]}
+                for row in results
+            ]
 
             return players
 
@@ -489,7 +496,12 @@ class RankedStatsCollector:
                     updated_at = NOW()
             """
 
-            self.db.execute(query, stats)
+            # Use direct connection since execute_query doesn't support dict params
+            with self.db._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, stats)
+                    conn.commit()
+
             logger.debug(
                 f"Updated ranked stats for {stats['player_name']} "
                 f"({stats['game_mode']}, season {stats['season_id']})"

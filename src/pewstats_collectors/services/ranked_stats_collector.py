@@ -101,8 +101,7 @@ class RankedStatsCollector:
 
             # Batch players into groups of 10
             player_batches = [
-                players[i : i + self.BATCH_SIZE]
-                for i in range(0, len(players), self.BATCH_SIZE)
+                players[i : i + self.BATCH_SIZE] for i in range(0, len(players), self.BATCH_SIZE)
             ]
 
             logger.info(f"Processing {len(player_batches)} batches of players")
@@ -120,10 +119,7 @@ class RankedStatsCollector:
                 stats["skipped"] += mode_stats["skipped"]
 
             duration = time.time() - start_time
-            logger.info(
-                f"Ranked stats collection completed in {duration:.2f}s. "
-                f"Stats: {stats}"
-            )
+            logger.info(f"Ranked stats collection completed in {duration:.2f}s. Stats: {stats}")
 
             # Record metrics
             increment_counter(
@@ -138,9 +134,7 @@ class RankedStatsCollector:
 
         except Exception as e:
             logger.error(f"Failed to collect ranked stats: {e}", exc_info=True)
-            increment_counter(
-                "ranked_stats_collection_total", 1, {"status": "error"}
-            )
+            increment_counter("ranked_stats_collection_total", 1, {"status": "error"})
             stats["errors"] += 1
             return stats
 
@@ -173,23 +167,17 @@ class RankedStatsCollector:
 
                 # Fetch stats from PUBG API
                 player_ids = [p["player_id"] for p in batch]
-                api_data = self._fetch_ranked_stats_batch(
-                    season_id, game_mode, player_ids
-                )
+                api_data = self._fetch_ranked_stats_batch(season_id, game_mode, player_ids)
 
                 if not api_data:
-                    logger.warning(
-                        f"No data returned for batch {batch_idx + 1} in {game_mode}"
-                    )
+                    logger.warning(f"No data returned for batch {batch_idx + 1} in {game_mode}")
                     stats["skipped"] += len(batch)
                     continue
 
                 # Process and store stats
                 for player_data in api_data.get("data", []):
                     try:
-                        player_stats = self._parse_player_stats(
-                            player_data, season_id, game_mode
-                        )
+                        player_stats = self._parse_player_stats(player_data, season_id, game_mode)
 
                         if player_stats:
                             self._upsert_player_stats(player_stats)
@@ -199,9 +187,7 @@ class RankedStatsCollector:
                             stats["skipped"] += 1
 
                     except Exception as e:
-                        logger.error(
-                            f"Failed to process stats for player: {e}", exc_info=True
-                        )
+                        logger.error(f"Failed to process stats for player: {e}", exc_info=True)
                         stats["errors"] += 1
 
                 # Rate limiting: wait between batches to avoid hitting API limits
@@ -269,9 +255,7 @@ class RankedStatsCollector:
             """
             results = self.db.fetch_all(query, (self.platform,))
 
-            players = [
-                {"player_id": row[0], "player_name": row[1]} for row in results
-            ]
+            players = [{"player_id": row[0], "player_name": row[1]} for row in results]
 
             return players
 
@@ -300,10 +284,7 @@ class RankedStatsCollector:
             player_ids = player_ids[: self.BATCH_SIZE]
 
         # Build URL
-        url = (
-            f"{self.BASE_URL}/{self.platform}/seasons/{season_id}/"
-            f"gameMode/{game_mode}/players"
-        )
+        url = f"{self.BASE_URL}/{self.platform}/seasons/{season_id}/gameMode/{game_mode}/players"
 
         # Build query parameters
         params = {"filter[playerIds]": ",".join(player_ids)}
@@ -323,16 +304,14 @@ class RankedStatsCollector:
                 import requests
 
                 logger.debug(f"Fetching ranked stats for {len(player_ids)} players")
-                response = requests.get(
-                    url, headers=headers, params=params, timeout=self.timeout
-                )
+                response = requests.get(url, headers=headers, params=params, timeout=self.timeout)
 
                 # Record request
                 self.key_manager.record_request(api_key)
 
                 # Handle rate limiting
                 if response.status_code == 429:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.warning(
                         f"Rate limit hit, waiting {wait_time}s before retry {attempt + 1}"
                     )
@@ -341,9 +320,7 @@ class RankedStatsCollector:
 
                 # Handle not found (no ranked stats for these players)
                 if response.status_code == 404:
-                    logger.debug(
-                        f"No ranked stats found for players in {game_mode} (404)"
-                    )
+                    logger.debug(f"No ranked stats found for players in {game_mode} (404)")
                     return None
 
                 # Raise for other HTTP errors
@@ -365,13 +342,13 @@ class RankedStatsCollector:
                 if attempt == self.max_retries - 1:
                     logger.error("Max retries exceeded due to timeout")
                     return None
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
 
             except requests.exceptions.RequestException as e:
                 logger.error(f"Request failed: {e}")
                 if attempt == self.max_retries - 1:
                     return None
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
 
             except Exception as e:
                 logger.error(f"Unexpected error fetching ranked stats: {e}", exc_info=True)
@@ -594,11 +571,7 @@ def main():
         logger.error("PUBG_API_KEYS environment variable not set")
         return
 
-    api_keys = [
-        {"key": key.strip(), "rpm": 10}
-        for key in api_keys_str.split(",")
-        if key.strip()
-    ]
+    api_keys = [{"key": key.strip(), "rpm": 10} for key in api_keys_str.split(",") if key.strip()]
     api_key_manager = APIKeyManager(api_keys)
 
     # Initialize collector
@@ -612,7 +585,9 @@ def main():
         if args.continuous:
             # Initial delay (to offset from other collectors)
             if args.initial_delay > 0:
-                logger.info(f"Initial delay: waiting {args.initial_delay} seconds before first collection...")
+                logger.info(
+                    f"Initial delay: waiting {args.initial_delay} seconds before first collection..."
+                )
                 time.sleep(args.initial_delay)
 
             # Continuous mode: collect periodically
@@ -629,9 +604,7 @@ def main():
                     logger.info("Received interrupt signal, shutting down...")
                     break
                 except Exception as e:
-                    logger.error(
-                        f"Error in collection cycle: {e}", exc_info=True
-                    )
+                    logger.error(f"Error in collection cycle: {e}", exc_info=True)
                     logger.info("Waiting 60 seconds before retry...")
                     time.sleep(60)
         else:

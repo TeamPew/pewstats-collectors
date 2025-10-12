@@ -67,6 +67,10 @@ class TelemetryProcessingWorker:
         # Initialize fight tracking processor
         self.fight_processor = FightTrackingProcessor(logger=self.logger)
 
+        # Tracked players cache for filtering damage events
+        self._tracked_players_cache = set()
+        self._tracked_players_cache_time = 0
+
         # Start metrics server
         start_metrics_server(port=metrics_port, worker_name=f"telemetry-processing-{worker_id}")
 
@@ -581,15 +585,21 @@ class TelemetryProcessingWorker:
         """
         Extract damage events from telemetry.
 
+        Only extracts events where attacker OR victim is a tracked player
+        (exists in the players table) to reduce storage and improve performance.
+
         Args:
             events: List of telemetry events
             match_id: Match ID
             match_data: Match metadata
 
         Returns:
-            List of damage event records
+            List of damage event records (filtered to tracked players only)
         """
         damage_events = []
+
+        # Get tracked players set for filtering
+        tracked_players = self._get_tracked_players_set()
 
         for event in events:
             event_type = get_event_type(event)
@@ -628,6 +638,10 @@ class TelemetryProcessingWorker:
                 continue
 
             if is_game is None or is_game < 1:
+                continue
+
+            # FILTER: Only include events where attacker OR victim is a tracked player
+            if not (attacker_name in tracked_players or victim_name in tracked_players):
                 continue
 
             damage_events.append(
@@ -1282,6 +1296,43 @@ class TelemetryProcessingWorker:
             finishing_processed=bool(knock_events or finishing_summaries),
             fights_processed=bool(fights),
         )
+
+    def _get_tracked_players_set(self) -> set:
+        """
+        Get set of tracked player names from the players table.
+
+        Cached for 5 minutes to avoid repeated database queries while still
+        allowing new tracked players to be picked up relatively quickly.
+
+        Returns:
+            Set of player names that are tracked (exist in players table)
+        """
+        now = time.time()
+        cache_duration = 300  # 5 minutes
+
+        # Return cached set if still valid
+        if now - self._tracked_players_cache_time < cache_duration:
+            return self._tracked_players_cache
+
+        # Refresh cache
+        try:
+            with self.database_manager._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT player_name FROM players")
+                    self._tracked_players_cache = {row["player_name"] for row in cur.fetchall()}
+                    self._tracked_players_cache_time = now
+
+                    self.logger.debug(
+                        f"[{self.worker_id}] Refreshed tracked players cache: "
+                        f"{len(self._tracked_players_cache)} tracked players"
+                    )
+        except Exception as e:
+            self.logger.warning(
+                f"[{self.worker_id}] Failed to refresh tracked players cache: {e}. "
+                f"Using cached set with {len(self._tracked_players_cache)} players"
+            )
+
+        return self._tracked_players_cache
 
     def _get_match_game_type(self, match_id: str) -> str:
         """

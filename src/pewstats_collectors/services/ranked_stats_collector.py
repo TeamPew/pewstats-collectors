@@ -217,6 +217,10 @@ class RankedStatsCollector:
             Dict with season info (id, display_name, season_number, platform) or None
         """
         try:
+            # Map PUBG API shard to season platform
+            # The PUBG API uses "steam" shard, but seasons use "pc" platform
+            season_platform = "pc" if self.platform == "steam" else self.platform
+
             # Check database for current season
             query = """
                 SELECT id, display_name, season_number, platform
@@ -224,7 +228,7 @@ class RankedStatsCollector:
                 WHERE is_current = true AND platform = %s
                 LIMIT 1
             """
-            results = self.db.execute_query(query, (self.platform,))
+            results = self.db.execute_query(query, (season_platform,))
 
             if results and len(results) > 0:
                 result = results[0]

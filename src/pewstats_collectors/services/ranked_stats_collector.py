@@ -568,7 +568,7 @@ def main():
     db_manager = DatabaseManager(
         host=os.getenv("POSTGRES_HOST", "localhost"),
         port=int(os.getenv("POSTGRES_PORT", 5432)),
-        database=os.getenv("POSTGRES_DB", "pewstats_production"),
+        dbname=os.getenv("POSTGRES_DB", "pewstats_production"),
         user=os.getenv("POSTGRES_USER", "pewstats_prod_user"),
         password=os.getenv("POSTGRES_PASSWORD", ""),
     )

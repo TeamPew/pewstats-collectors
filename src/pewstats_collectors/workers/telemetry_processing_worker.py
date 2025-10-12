@@ -1334,7 +1334,6 @@ class TelemetryProcessingWorker:
 
         return self._tracked_players_cache
 
-
     def _get_match_game_type(self, match_id: str) -> str:
         """
         Get the game_type for a match to determine if telemetry should be processed.

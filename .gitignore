@@ -23,6 +23,7 @@ wheels/
 # Virtual Environment
 venv/
 .venv/
+.venv-test/
 env/
 ENV/
 
@@ -51,6 +52,10 @@ htmlcov/
 data/
 *.parquet
 *.csv
+
+# R scripts
+*.r
+*.R
 
 # OS
 .DS_Store

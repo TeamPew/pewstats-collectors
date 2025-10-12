@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.10.3...v1.11.0) (2025-10-12)
+
+
+### Features
+
+* filter player_damage_events to tracked players only ([aedeaa0](https://github.com/TeamPew/pewstats-collectors/commit/aedeaa0b3f971fa2562197ae9cf36b047cbb57f1))
+
 ## [1.10.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.10.2...v1.10.3) (2025-10-12)
 
 

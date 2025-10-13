@@ -4,10 +4,10 @@ This service periodically collects ranked stats for tracked players from the PUB
 It fetches the current season and updates the ranked_player_stats table with the latest
 stats for each player and game mode.
 
-PUBG API Endpoint: GET /shards/{platform}/seasons/{seasonId}/gameMode/{gameMode}/players
-- Supports batch requests for up to 10 players at a time
+PUBG API Endpoint: GET /shards/{platform}/players/{accountId}/seasons/{seasonId}/ranked
+- Single player per request (no batching)
 - Requires valid API key with Bearer authentication
-- Rate limited to 10 requests per minute per API key
+- Designed for 100 RPM rate limit (separate API key recommended)
 """
 
 import logging
@@ -45,10 +45,9 @@ class RankedStatsCollector:
 
     BASE_URL = "https://api.pubg.com/shards"
     CONTENT_TYPE = "application/vnd.api+json"
-    BATCH_SIZE = 10  # PUBG API supports up to 10 players per request
 
-    # Game modes to collect stats for
-    # Only FPP modes are commonly played in ranked
+    # Game modes available in ranked stats (returned by API, not requested separately)
+    # The API returns all modes the player has played in a single request
     GAME_MODES = ["squad-fpp", "duo-fpp"]
 
     def __init__(
@@ -58,6 +57,7 @@ class RankedStatsCollector:
         platform: str = "steam",
         max_retries: int = 3,
         timeout: int = 30,
+        requests_per_minute: int = 100,
     ):
         """Initialize the ranked stats collector.
 
@@ -67,14 +67,23 @@ class RankedStatsCollector:
             platform: PUBG platform (default: "steam")
             max_retries: Maximum retry attempts for failed requests
             timeout: Request timeout in seconds
+            requests_per_minute: Rate limit for API key (default: 100)
         """
         self.db = db_manager
         self.key_manager = api_key_manager
         self.platform = platform
         self.max_retries = max_retries
         self.timeout = timeout
+        self.requests_per_minute = requests_per_minute
+
+        # Use 1 second delay between requests to be safe and not overuse the key
+        # This gives us ~60 requests per minute (well under the 100 RPM limit)
+        self.request_delay = 1.0
 
         logger.info(f"Initialized RankedStatsCollector for platform '{platform}'")
+        logger.info(
+            f"Rate limit: {requests_per_minute} RPM (using {self.request_delay}s delay = ~{60 / self.request_delay:.0f} RPM)"
+        )
 
     def collect_all_ranked_stats(self) -> Dict[str, int]:
         """Collect ranked stats for all tracked players.
@@ -111,24 +120,42 @@ class RankedStatsCollector:
                 logger.warning("No tracked players found in database")
                 return stats
 
-            # Batch players into groups of 10
-            player_batches = [
-                players[i : i + self.BATCH_SIZE] for i in range(0, len(players), self.BATCH_SIZE)
-            ]
+            # Process each player individually (ranked endpoint doesn't support batching)
+            logger.info(f"Processing {len(players)} players individually")
 
-            logger.info(f"Processing {len(player_batches)} batches of players")
+            for idx, player in enumerate(players, 1):
+                try:
+                    if idx % 50 == 0:
+                        logger.info(f"Progress: {idx}/{len(players)} players processed")
 
-            # Collect stats for each game mode
-            for game_mode in self.GAME_MODES:
-                logger.info(f"Collecting stats for game mode: {game_mode}")
-                mode_stats = self._collect_stats_for_game_mode(
-                    current_season["id"], game_mode, player_batches
-                )
+                    player_stats = self._collect_player_ranked_stats(
+                        player["player_id"], player["player_name"], current_season["id"]
+                    )
 
-                stats["players_processed"] += mode_stats["players_processed"]
-                stats["stats_updated"] += mode_stats["stats_updated"]
-                stats["errors"] += mode_stats["errors"]
-                stats["skipped"] += mode_stats["skipped"]
+                    if player_stats:
+                        # Store stats for each game mode returned by API
+                        for game_mode, mode_data in player_stats.items():
+                            try:
+                                self._upsert_player_stats(mode_data)
+                                stats["stats_updated"] += 1
+                            except Exception as e:
+                                logger.error(
+                                    f"Failed to store stats for {player['player_name']} ({game_mode}): {e}"
+                                )
+                                stats["errors"] += 1
+
+                        stats["players_processed"] += 1
+                    else:
+                        stats["skipped"] += 1
+
+                    # Rate limiting: wait between requests
+                    time.sleep(self.request_delay)
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to process player {player['player_name']}: {e}", exc_info=True
+                    )
+                    stats["errors"] += 1
 
             duration = time.time() - start_time
             logger.info(f"Ranked stats collection completed in {duration:.2f}s. Stats: {stats}")
@@ -146,69 +173,56 @@ class RankedStatsCollector:
             stats["errors"] += 1
             return stats
 
-    def _collect_stats_for_game_mode(
-        self, season_id: str, game_mode: str, player_batches: List[List[Dict[str, str]]]
-    ) -> Dict[str, int]:
-        """Collect ranked stats for a specific game mode.
+    def _collect_player_ranked_stats(
+        self, player_id: str, player_name: str, season_id: str
+    ) -> Optional[Dict[str, Dict[str, Any]]]:
+        """Collect ranked stats for a single player.
 
         Args:
+            player_id: Player account ID (with or without 'account.' prefix)
+            player_name: Player name
             season_id: Season ID to collect stats for
-            game_mode: Game mode (e.g., "squad-fpp")
-            player_batches: List of player batches (max 10 players per batch)
 
         Returns:
-            Dict with collection statistics
+            Dict mapping game_mode to stats dict, or None if no ranked stats found
         """
-        stats = {
-            "players_processed": 0,
-            "stats_updated": 0,
-            "errors": 0,
-            "skipped": 0,
-        }
+        try:
+            # Normalize player_id to include 'account.' prefix
+            if not player_id.startswith("account."):
+                player_id = f"account.{player_id}"
 
-        for batch_idx, batch in enumerate(player_batches):
-            try:
-                logger.debug(
-                    f"Processing batch {batch_idx + 1}/{len(player_batches)} "
-                    f"for {game_mode} ({len(batch)} players)"
-                )
+            # Fetch ranked stats from PUBG API
+            api_data = self._fetch_ranked_stats(player_id, season_id)
 
-                # Fetch stats from PUBG API
-                player_ids = [p["player_id"] for p in batch]
-                api_data = self._fetch_ranked_stats_batch(season_id, game_mode, player_ids)
+            if not api_data:
+                logger.debug(f"No ranked stats found for {player_name}")
+                return None
 
-                if not api_data:
-                    logger.warning(f"No data returned for batch {batch_idx + 1} in {game_mode}")
-                    stats["skipped"] += len(batch)
-                    continue
+            # Parse all game modes from the response
+            result = {}
+            attributes = api_data.get("data", {}).get("attributes", {})
+            ranked_game_mode_stats = attributes.get("rankedGameModeStats", {})
 
-                # Process and store stats
-                for player_data in api_data.get("data", []):
-                    try:
-                        player_stats = self._parse_player_stats(player_data, season_id, game_mode)
+            if not ranked_game_mode_stats:
+                logger.debug(f"No ranked game mode stats for {player_name}")
+                return None
 
-                        if player_stats:
-                            self._upsert_player_stats(player_stats)
-                            stats["stats_updated"] += 1
-                            stats["players_processed"] += 1
-                        else:
-                            stats["skipped"] += 1
+            # Process each game mode
+            for game_mode, mode_stats in ranked_game_mode_stats.items():
+                try:
+                    parsed_stats = self._parse_ranked_stats(
+                        player_id, player_name, season_id, game_mode, mode_stats
+                    )
+                    if parsed_stats:
+                        result[game_mode] = parsed_stats
+                except Exception as e:
+                    logger.error(f"Failed to parse {game_mode} stats for {player_name}: {e}")
 
-                    except Exception as e:
-                        logger.error(f"Failed to process stats for player: {e}", exc_info=True)
-                        stats["errors"] += 1
+            return result if result else None
 
-                # Rate limiting: wait between batches to avoid hitting API limits
-                time.sleep(6)  # 10 RPM = 1 request per 6 seconds
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to process batch {batch_idx + 1} for {game_mode}: {e}",
-                    exc_info=True,
-                )
-                stats["errors"] += len(batch)
-
-        return stats
+        except Exception as e:
+            logger.error(f"Failed to collect ranked stats for {player_name}: {e}", exc_info=True)
+            return None
 
     def _get_or_update_current_season(self) -> Optional[Dict[str, str]]:
         """Get the current season from database or fetch from API if needed.
@@ -282,31 +296,24 @@ class RankedStatsCollector:
             logger.error(f"Failed to get tracked players: {e}", exc_info=True)
             return []
 
-    def _fetch_ranked_stats_batch(
-        self, season_id: str, game_mode: str, player_ids: List[str]
-    ) -> Optional[Dict[str, Any]]:
-        """Fetch ranked stats for a batch of players from PUBG API.
+    def _fetch_ranked_stats(self, player_id: str, season_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch ranked stats for a single player from PUBG API.
 
         Args:
+            player_id: Player account ID (with or without 'account.' prefix)
             season_id: Season ID
-            game_mode: Game mode (e.g., "squad-fpp")
-            player_ids: List of player IDs (max 10)
 
         Returns:
             Parsed JSON response or None if request fails
         """
-        if len(player_ids) > self.BATCH_SIZE:
-            logger.warning(
-                f"Player batch size {len(player_ids)} exceeds maximum {self.BATCH_SIZE}, "
-                f"truncating to first {self.BATCH_SIZE} players"
-            )
-            player_ids = player_ids[: self.BATCH_SIZE]
+        # Ensure player_id has the 'account.' prefix
+        # Some player IDs in the database are missing this prefix
+        if not player_id.startswith("account."):
+            player_id = f"account.{player_id}"
 
-        # Build URL
-        url = f"{self.BASE_URL}/{self.platform}/seasons/{season_id}/gameMode/{game_mode}/players"
-
-        # Build query parameters
-        params = {"filter[playerIds]": ",".join(player_ids)}
+        # Build URL for ranked endpoint
+        # Format: /shards/{platform}/players/{accountId}/seasons/{seasonId}/ranked
+        url = f"{self.BASE_URL}/{self.platform}/players/{player_id}/seasons/{season_id}/ranked"
 
         # Get API key
         api_key = self.key_manager.select_key()
@@ -322,8 +329,8 @@ class RankedStatsCollector:
             try:
                 import requests
 
-                logger.debug(f"Fetching ranked stats for {len(player_ids)} players")
-                response = requests.get(url, headers=headers, params=params, timeout=self.timeout)
+                logger.debug(f"Fetching ranked stats for player {player_id}")
+                response = requests.get(url, headers=headers, timeout=self.timeout)
 
                 # Record request
                 self.key_manager.record_request(api_key)
@@ -337,9 +344,9 @@ class RankedStatsCollector:
                     time.sleep(wait_time)
                     continue
 
-                # Handle not found (no ranked stats for these players)
+                # Handle not found (no ranked stats for this player)
                 if response.status_code == 404:
-                    logger.debug(f"No ranked stats found for players in {game_mode} (404)")
+                    logger.debug(f"No ranked stats found for player {player_id} (404)")
                     return None
 
                 # Raise for other HTTP errors
@@ -375,65 +382,96 @@ class RankedStatsCollector:
 
         return None
 
-    def _parse_player_stats(
-        self, player_data: Dict[str, Any], season_id: str, game_mode: str
+    def _parse_ranked_stats(
+        self,
+        player_id: str,
+        player_name: str,
+        season_id: str,
+        game_mode: str,
+        mode_stats: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
-        """Parse player ranked stats from PUBG API response.
+        """Parse ranked stats for a specific game mode.
 
         Args:
-            player_data: Player data from API response
+            player_id: Player account ID
+            player_name: Player name
             season_id: Season ID
-            game_mode: Game mode
+            game_mode: Game mode (e.g., "squad-fpp", "duo-fpp")
+            mode_stats: Stats dict for this game mode from rankedGameModeStats
 
         Returns:
             Dict with parsed stats or None if parsing fails
         """
         try:
-            # Extract player info
-            player_id = player_data.get("id")
-            attributes = player_data.get("attributes", {})
-            ranked_stats = attributes.get("rankedGameModeStats", {})
+            # Extract tier information
+            current_tier_obj = mode_stats.get("currentTier", {})
+            best_tier_obj = mode_stats.get("bestTier", {})
 
-            # Check if player has stats for this game mode
-            if not ranked_stats:
-                logger.debug(f"No ranked stats for player {player_id} in {game_mode}")
-                return None
+            current_tier = (
+                current_tier_obj.get("tier") if isinstance(current_tier_obj, dict) else None
+            )
+            current_sub_tier = (
+                current_tier_obj.get("subTier") if isinstance(current_tier_obj, dict) else None
+            )
+            best_tier = best_tier_obj.get("tier") if isinstance(best_tier_obj, dict) else None
+            best_sub_tier = (
+                best_tier_obj.get("subTier") if isinstance(best_tier_obj, dict) else None
+            )
 
-            # Extract current rank info
-            current_tier = ranked_stats.get("currentTier", {})
-            best_tier = ranked_stats.get("bestTier", {})
+            # Extract rank points
+            current_rank_point = mode_stats.get("currentRankPoint", 0)
+            best_rank_point = mode_stats.get("bestRankPoint", 0)
+
+            # Extract game stats
+            rounds_played = mode_stats.get("roundsPlayed", 0)
+            wins = mode_stats.get("wins", 0)
+            kills = mode_stats.get("kills", 0)
+            deaths = mode_stats.get("deaths", 0)
+            assists = mode_stats.get("assists", 0)
+            damage_dealt = mode_stats.get("damageDealt", 0)
+            dbnos = mode_stats.get("dBNOs", 0)
+
+            # Extract derived stats (API provides these)
+            avg_rank = mode_stats.get("avgRank")
+            top10_ratio = mode_stats.get("top10Ratio", 0)
+            win_ratio = mode_stats.get("winRatio", 0)
+            kda = mode_stats.get("kda", 0)
+            kdr = mode_stats.get("kdr", 0)
+
+            headshot_kills = mode_stats.get("headshotKills", 0)
+            headshot_kill_ratio = mode_stats.get("headshotKillRatio", 0)
+            longest_kill = mode_stats.get("longestKill")
 
             # Build stats dict
             stats = {
                 "player_id": player_id,
-                "player_name": attributes.get("name", "Unknown"),
+                "player_name": player_name,
                 "season_id": season_id,
                 "game_mode": game_mode,
-                # Current tier info
-                "current_tier": current_tier.get("tier"),
-                "current_sub_tier": current_tier.get("subTier"),
-                "current_rank_point": ranked_stats.get("currentRankPoint", 0),
-                # Best tier info
-                "best_tier": best_tier.get("tier"),
-                "best_sub_tier": best_tier.get("subTier"),
-                "best_rank_point": ranked_stats.get("bestRankPoint", 0),
+                # Tier and rank info
+                "current_tier": current_tier,
+                "current_sub_tier": current_sub_tier,
+                "current_rank_point": current_rank_point,
+                "best_tier": best_tier,
+                "best_sub_tier": best_sub_tier,
+                "best_rank_point": best_rank_point,
                 # Game stats
-                "rounds_played": ranked_stats.get("roundsPlayed", 0),
-                "wins": ranked_stats.get("wins", 0),
-                "kills": ranked_stats.get("kills", 0),
-                "deaths": ranked_stats.get("deaths", 0),
-                "assists": ranked_stats.get("assists", 0),
-                "damage_dealt": ranked_stats.get("damageDealt", 0),
-                "dbnos": ranked_stats.get("dBNOs", 0),
+                "rounds_played": rounds_played,
+                "wins": wins,
+                "kills": kills,
+                "deaths": deaths,
+                "assists": assists,
+                "damage_dealt": damage_dealt,
+                "dbnos": dbnos,
                 # Derived stats
-                "avg_rank": ranked_stats.get("avgRank"),
-                "top10_ratio": ranked_stats.get("top10Ratio"),
-                "win_ratio": ranked_stats.get("winRatio"),
-                "kda": ranked_stats.get("kda"),
-                "kdr": ranked_stats.get("kdr"),
-                "headshot_kills": ranked_stats.get("headshotKills", 0),
-                "headshot_kill_ratio": ranked_stats.get("headshotKillRatio"),
-                "longest_kill": ranked_stats.get("longestKill"),
+                "avg_rank": avg_rank,
+                "top10_ratio": top10_ratio,
+                "win_ratio": win_ratio,
+                "kda": kda,
+                "kdr": kdr,
+                "headshot_kills": headshot_kills,
+                "headshot_kill_ratio": headshot_kill_ratio,
+                "longest_kill": longest_kill,
                 # Timestamp
                 "collected_at": datetime.now(),
             }
@@ -441,7 +479,9 @@ class RankedStatsCollector:
             return stats
 
         except Exception as e:
-            logger.error(f"Failed to parse player stats: {e}", exc_info=True)
+            logger.error(
+                f"Failed to parse ranked stats for {player_name} ({game_mode}): {e}", exc_info=True
+            )
             return None
 
     def _upsert_player_stats(self, stats: Dict[str, Any]) -> bool:
@@ -589,20 +629,24 @@ def main():
         password=os.getenv("POSTGRES_PASSWORD", ""),
     )
 
-    # Parse API keys
-    api_keys_str = os.getenv("PUBG_API_KEYS", "")
-    if not api_keys_str:
-        logger.error("PUBG_API_KEYS environment variable not set")
+    # Parse ranked API key (separate from regular PUBG_API_KEYS)
+    # Ranked stats collection uses a dedicated 100 RPM key
+    ranked_api_key = os.getenv("RANKED_API_KEY", "")
+    if not ranked_api_key:
+        logger.error("RANKED_API_KEY environment variable not set")
+        logger.error("Please set RANKED_API_KEY with a 100 RPM API key for ranked stats collection")
         return
 
-    api_keys = [{"key": key.strip(), "rpm": 10} for key in api_keys_str.split(",") if key.strip()]
+    # Create API key manager with the ranked key (100 RPM)
+    api_keys = [{"key": ranked_api_key.strip(), "rpm": 100}]
     api_key_manager = APIKeyManager(api_keys)
 
-    # Initialize collector
+    # Initialize collector with 100 RPM rate limit
     collector = RankedStatsCollector(
         db_manager=db_manager,
         api_key_manager=api_key_manager,
         platform=args.platform,
+        requests_per_minute=100,
     )
 
     try:

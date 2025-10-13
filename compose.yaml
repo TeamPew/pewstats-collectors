@@ -237,6 +237,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       # PUBG API configuration
       - PUBG_API_KEYS=${PUBG_API_KEYS}
+      - RANKED_API_KEY=${RANKED_API_KEY}
       - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
       # Service configuration
       - LOG_LEVEL=${LOG_LEVEL:-INFO}

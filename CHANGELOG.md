@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.12.0...v1.13.0) (2025-10-13)
+
+
+### Features
+
+* add RANKED_API_KEY environment variable to ranked-stats-collector ([7398426](https://github.com/TeamPew/pewstats-collectors/commit/7398426b131a97da010cf7f08deeb39446670414))
+* add RANKED_API_KEY environment variable to ranked-stats-collector ([fb4e2bf](https://github.com/TeamPew/pewstats-collectors/commit/fb4e2bf2fdfc15a9dbad72b82edff316d065d575))
+
 ## [1.12.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.11.0...v1.12.0) (2025-10-13)
 
 

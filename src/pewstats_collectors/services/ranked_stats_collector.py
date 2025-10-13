@@ -342,9 +342,9 @@ class RankedStatsCollector:
                     time.sleep(wait_time)
                     continue
 
-                # Handle not found (no ranked stats for these players)
+                # Handle not found (no ranked stats for this player)
                 if response.status_code == 404:
-                    logger.debug(f"No ranked stats found for players in {game_mode} (404)")
+                    logger.debug(f"No ranked stats found for player {player_id} (404)")
                     return None
 
                 # Raise for other HTTP errors

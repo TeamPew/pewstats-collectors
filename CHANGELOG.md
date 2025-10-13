@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.12.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.11.0...v1.12.0) (2025-10-13)
+
+
+### Features
+
+* rewrite ranked stats collector to use correct API endpoint ([a13dedd](https://github.com/TeamPew/pewstats-collectors/commit/a13dedde10050fefc0e0b25c19171c0845154b9c))
+
+
+### Bug Fixes
+
+* map steam platform to pc for season lookup ([210665b](https://github.com/TeamPew/pewstats-collectors/commit/210665bc14f32a4b30e3f26885dcb84068541e28))
+* map steam platform to pc for season lookup ([9f37389](https://github.com/TeamPew/pewstats-collectors/commit/9f37389be690d98b12fb99c09c0ce8920347c6b4))
+* remove undefined game_mode variable from debug log ([7daaf66](https://github.com/TeamPew/pewstats-collectors/commit/7daaf66f8a6bd83a4c4224e669e8af423a14abe9))
+
 ## [1.11.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.10.3...v1.11.0) (2025-10-12)
 
 

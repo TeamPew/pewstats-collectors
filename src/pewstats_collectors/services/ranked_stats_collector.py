@@ -81,7 +81,9 @@ class RankedStatsCollector:
         self.request_delay = 1.0
 
         logger.info(f"Initialized RankedStatsCollector for platform '{platform}'")
-        logger.info(f"Rate limit: {requests_per_minute} RPM (using {self.request_delay}s delay = ~{60/self.request_delay:.0f} RPM)")
+        logger.info(
+            f"Rate limit: {requests_per_minute} RPM (using {self.request_delay}s delay = ~{60 / self.request_delay:.0f} RPM)"
+        )
 
     def collect_all_ranked_stats(self) -> Dict[str, int]:
         """Collect ranked stats for all tracked players.
@@ -127,9 +129,7 @@ class RankedStatsCollector:
                         logger.info(f"Progress: {idx}/{len(players)} players processed")
 
                     player_stats = self._collect_player_ranked_stats(
-                        player["player_id"],
-                        player["player_name"],
-                        current_season["id"]
+                        player["player_id"], player["player_name"], current_season["id"]
                     )
 
                     if player_stats:
@@ -139,7 +139,9 @@ class RankedStatsCollector:
                                 self._upsert_player_stats(mode_data)
                                 stats["stats_updated"] += 1
                             except Exception as e:
-                                logger.error(f"Failed to store stats for {player['player_name']} ({game_mode}): {e}")
+                                logger.error(
+                                    f"Failed to store stats for {player['player_name']} ({game_mode}): {e}"
+                                )
                                 stats["errors"] += 1
 
                         stats["players_processed"] += 1
@@ -150,7 +152,9 @@ class RankedStatsCollector:
                     time.sleep(self.request_delay)
 
                 except Exception as e:
-                    logger.error(f"Failed to process player {player['player_name']}: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to process player {player['player_name']}: {e}", exc_info=True
+                    )
                     stats["errors"] += 1
 
             duration = time.time() - start_time
@@ -292,9 +296,7 @@ class RankedStatsCollector:
             logger.error(f"Failed to get tracked players: {e}", exc_info=True)
             return []
 
-    def _fetch_ranked_stats(
-        self, player_id: str, season_id: str
-    ) -> Optional[Dict[str, Any]]:
+    def _fetch_ranked_stats(self, player_id: str, season_id: str) -> Optional[Dict[str, Any]]:
         """Fetch ranked stats for a single player from PUBG API.
 
         Args:
@@ -381,8 +383,12 @@ class RankedStatsCollector:
         return None
 
     def _parse_ranked_stats(
-        self, player_id: str, player_name: str, season_id: str,
-        game_mode: str, mode_stats: Dict[str, Any]
+        self,
+        player_id: str,
+        player_name: str,
+        season_id: str,
+        game_mode: str,
+        mode_stats: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
         """Parse ranked stats for a specific game mode.
 
@@ -401,10 +407,16 @@ class RankedStatsCollector:
             current_tier_obj = mode_stats.get("currentTier", {})
             best_tier_obj = mode_stats.get("bestTier", {})
 
-            current_tier = current_tier_obj.get("tier") if isinstance(current_tier_obj, dict) else None
-            current_sub_tier = current_tier_obj.get("subTier") if isinstance(current_tier_obj, dict) else None
+            current_tier = (
+                current_tier_obj.get("tier") if isinstance(current_tier_obj, dict) else None
+            )
+            current_sub_tier = (
+                current_tier_obj.get("subTier") if isinstance(current_tier_obj, dict) else None
+            )
             best_tier = best_tier_obj.get("tier") if isinstance(best_tier_obj, dict) else None
-            best_sub_tier = best_tier_obj.get("subTier") if isinstance(best_tier_obj, dict) else None
+            best_sub_tier = (
+                best_tier_obj.get("subTier") if isinstance(best_tier_obj, dict) else None
+            )
 
             # Extract rank points
             current_rank_point = mode_stats.get("currentRankPoint", 0)
@@ -467,7 +479,9 @@ class RankedStatsCollector:
             return stats
 
         except Exception as e:
-            logger.error(f"Failed to parse ranked stats for {player_name} ({game_mode}): {e}", exc_info=True)
+            logger.error(
+                f"Failed to parse ranked stats for {player_name} ({game_mode}): {e}", exc_info=True
+            )
             return None
 
     def _upsert_player_stats(self, stats: Dict[str, Any]) -> bool:

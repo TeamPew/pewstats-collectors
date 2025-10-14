@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.15.0...v1.15.1) (2025-10-14)
+
+
+### Bug Fixes
+
+* add timezone support for tournament schedule and split API keys ([9425e93](https://github.com/TeamPew/pewstats-collectors/commit/9425e93cbdcd3bf27864006a6dba2d5fa5374dc3))
+
 ## [1.15.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.14.0...v1.15.0) (2025-10-14)
 
 

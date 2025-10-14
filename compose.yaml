@@ -277,7 +277,8 @@ services:
       "--schedule-enabled",
       "--schedule-days", "0,1,2,3,6",
       "--schedule-start", "18:00",
-      "--schedule-end", "00:00"
+      "--schedule-end", "00:00",
+      "--schedule-timezone", "Europe/Oslo"
     ]
     # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
     environment:

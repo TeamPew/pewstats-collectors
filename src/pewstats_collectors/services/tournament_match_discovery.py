@@ -26,6 +26,7 @@ import os
 import time
 from datetime import datetime, time as dt_time
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 import click
 from dotenv import load_dotenv
@@ -46,6 +47,7 @@ class TournamentSchedule:
         days_of_week: Optional[List[int]] = None,
         start_time: str = "18:00",
         end_time: str = "00:00",
+        timezone: str = "Europe/Oslo",
     ):
         """Initialize tournament schedule.
 
@@ -54,11 +56,13 @@ class TournamentSchedule:
             days_of_week: List of active days (0=Monday, 6=Sunday). Default: [0,1,2,3,6]
             start_time: Start time in HH:MM format (default: 18:00)
             end_time: End time in HH:MM format (default: 00:00)
+            timezone: IANA timezone name (default: Europe/Oslo for CEST/CET)
         """
         self.enabled = enabled
         self.days_of_week = days_of_week or [0, 1, 2, 3, 6]  # Mon-Thu, Sun
         self.start_time = self._parse_time(start_time)
         self.end_time = self._parse_time(end_time)
+        self.timezone = ZoneInfo(timezone)
 
     def _parse_time(self, time_str: str) -> dt_time:
         """Parse HH:MM time string."""
@@ -74,7 +78,7 @@ class TournamentSchedule:
         if not self.enabled:
             return True  # Always active if scheduling disabled
 
-        now = datetime.now()
+        now = datetime.now(self.timezone)
         current_day = now.weekday()  # 0=Monday, 6=Sunday
         current_time = now.time()
 
@@ -736,6 +740,9 @@ class TournamentMatchDiscoveryService:
 )
 @click.option("--schedule-start", default="18:00", help="Start time HH:MM (default: 18:00)")
 @click.option("--schedule-end", default="00:00", help="End time HH:MM (default: 00:00)")
+@click.option(
+    "--schedule-timezone", default="Europe/Oslo", help="IANA timezone (default: Europe/Oslo)"
+)
 @click.option("--adaptive-sampling", is_flag=True, default=True, help="Enable adaptive sampling")
 def discover_tournament_matches(
     env_file: str,
@@ -748,6 +755,7 @@ def discover_tournament_matches(
     schedule_days: str,
     schedule_start: str,
     schedule_end: str,
+    schedule_timezone: str,
     adaptive_sampling: bool,
 ):
     """Discover tournament PUBG matches with intelligent sampling and scheduling.
@@ -791,6 +799,7 @@ def discover_tournament_matches(
         days_of_week=days_of_week,
         start_time=schedule_start,
         end_time=schedule_end,
+        timezone=schedule_timezone,
     )
 
     def run_discovery():
@@ -884,6 +893,11 @@ def discover_tournament_matches(
             f"Starting tournament match discovery in continuous mode "
             f"(interval: {interval}s, schedule: {schedule_enabled})"
         )
+        if schedule_enabled:
+            logger.info(
+                f"Schedule: {', '.join([['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d] for d in days_of_week])} "
+                f"{schedule_start}-{schedule_end} {schedule_timezone}"
+            )
 
         while True:
             try:

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.14.0...v1.15.0) (2025-10-14)
+
+
+### Features
+
+* add tournament rounds, seasons, and auto-population ([fcd2bc8](https://github.com/TeamPew/pewstats-collectors/commit/fcd2bc87e23aceaf95fb89c2cac82474ea5c5a55))
+* add tournament rounds, seasons, and auto-population ([c2372d6](https://github.com/TeamPew/pewstats-collectors/commit/c2372d60c3158ded0025c28536010999bb555332))
+
 ## [1.14.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.13.0...v1.14.0) (2025-10-14)
 
 

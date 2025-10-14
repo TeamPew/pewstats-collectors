@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.13.0...v1.14.0) (2025-10-14)
+
+
+### Features
+
+* add tournament match discovery system ([8775f83](https://github.com/TeamPew/pewstats-collectors/commit/8775f832d3c98357d0dbb55ebfcf8a81f6e9a250))
+
 ## [1.13.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.12.0...v1.13.0) (2025-10-13)
 
 

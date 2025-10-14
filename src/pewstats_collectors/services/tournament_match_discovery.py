@@ -279,6 +279,7 @@ class TournamentMatchDiscoveryService:
         filtered = []
         # October 13, 2025 00:00:00 UTC (timezone-aware)
         from datetime import timezone
+
         cutoff_date = datetime(2025, 10, 13, 0, 0, 0, tzinfo=timezone.utc)
 
         for match_id in match_ids:

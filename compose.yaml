@@ -17,8 +17,8 @@ services:
       - RABBITMQ_USER=${RABBITMQ_USER:-guest}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
       - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
-      # PUBG API configuration
-      - PUBG_API_KEYS=${PUBG_API_KEYS}
+      # PUBG API configuration (uses main pipeline keys)
+      - PUBG_API_KEYS=${PUBG_MAIN_KEYS:-${PUBG_API_KEYS}}
       - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
       # Service configuration
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -247,7 +247,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: 256M
+          memory: 512M
         reservations:
           cpus: "0.25"
           memory: 256M
@@ -266,6 +266,7 @@ services:
   # Tournament Match Discovery - Discovers tournament matches with intelligent sampling
   # Runs every 60 seconds during tournament hours (Mon-Thu, Sun 18:00-00:00)
   # Only discovers custom esports matches from Oct 13, 2025 onwards
+  # Uses separate API keys to avoid rate limit collisions with main pipeline
   tournament-discovery:
     image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
     command: [
@@ -286,8 +287,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      # PUBG API configuration
-      - PUBG_API_KEYS=${PUBG_API_KEYS}
+      # PUBG API configuration (uses dedicated tournament keys)
+      - PUBG_API_KEYS=${PUBG_TOURNAMENT_KEYS:-${PUBG_API_KEYS}}
       - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
       # Service configuration
       - LOG_LEVEL=${LOG_LEVEL:-INFO}

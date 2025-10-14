@@ -219,7 +219,7 @@ class TournamentMatchDiscoveryService:
                   AND tp.preferred_team = true
                   AND t.is_active = true
             )
-            SELECT DISTINCT player_id
+            SELECT player_id
             FROM lobby_samples
             WHERE sample_rank <= %s
             ORDER BY sample_rank
@@ -265,7 +265,10 @@ class TournamentMatchDiscoveryService:
             return []
 
     def _filter_matches_by_type(self, match_ids: List[str]) -> List[str]:
-        """Filter match IDs by match type.
+        """Filter match IDs by match type, game mode, and date.
+
+        Filters for custom esport matches only (match_type=custom, game_mode=esports-squad-fpp)
+        from October 13, 2025 onwards.
 
         Args:
             match_ids: List of match IDs
@@ -274,20 +277,38 @@ class TournamentMatchDiscoveryService:
             Filtered list of match IDs
         """
         filtered = []
+        # October 13, 2025 00:00:00 UTC (timezone-aware)
+        from datetime import timezone
+
+        cutoff_date = datetime(2025, 10, 13, 0, 0, 0, tzinfo=timezone.utc)
 
         for match_id in match_ids:
             try:
                 # Fetch match metadata
                 match_data = self.pubg_client.get_match(match_id)
-                match_type = match_data["data"]["attributes"].get("matchType", "").lower()
+                attributes = match_data["data"]["attributes"]
+                match_type = attributes.get("matchType", "").lower()
+                game_mode = attributes.get("gameMode", "").lower()
+                created_at_str = attributes.get("createdAt", "")
 
-                # Check if match type is in allowed list
-                if any(allowed.lower() in match_type for allowed in self.match_types):
+                # Parse match datetime (timezone-aware)
+                match_datetime = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+
+                # Only include custom esports matches from Oct 13, 2025 onwards
+                if (
+                    match_type == "custom"
+                    and game_mode == "esports-squad-fpp"
+                    and match_datetime >= cutoff_date
+                ):
                     filtered.append(match_id)
+                    self.logger.debug(
+                        f"Match {match_id}: type='{match_type}', mode='{game_mode}', "
+                        f"date='{match_datetime}' - INCLUDED"
+                    )
                 else:
                     self.logger.debug(
-                        f"Skipping match {match_id} with type '{match_type}' "
-                        f"(not in {self.match_types})"
+                        f"Skipping match {match_id}: type='{match_type}', mode='{game_mode}', "
+                        f"date='{match_datetime}' (not custom esports-squad-fpp after Oct 13, 2025)"
                     )
 
             except Exception as e:
@@ -474,9 +495,8 @@ class TournamentMatchDiscoveryService:
 
             inserted_count = 0
             for record in participant_records:
-                result = self.database.execute_query(query, record)
-                if result is not None:
-                    inserted_count += 1
+                self.database.execute_query(query, record, fetch=False)
+                inserted_count += 1
 
             return inserted_count
 
@@ -504,8 +524,16 @@ class TournamentMatchDiscoveryService:
               AND tp.is_active = true
             """
 
-            result = self.database.execute_query(query, (match_id,))
-            return result if result else 0
+            self.database.execute_query(query, (match_id,), fetch=False)
+
+            # Count how many were matched
+            count_query = """
+            SELECT COUNT(*) as count
+            FROM tournament_matches
+            WHERE match_id = %s AND team_id IS NOT NULL
+            """
+            result = self.database.execute_query(count_query, (match_id,))
+            return result[0]["count"] if result else 0
 
         except Exception as e:
             self.logger.error(f"Failed to match players to teams for {match_id}: {e}")
@@ -686,8 +714,11 @@ def discover_tournament_matches(
                 # Initialize PUBG client
                 pubg_client = PUBGClient(
                     api_key_manager=api_key_manager,
-                    get_existing_match_ids=lambda: db.execute_query(
-                        "SELECT DISTINCT match_id FROM tournament_matches", ()
+                    get_existing_match_ids=lambda: set(
+                        row["match_id"]
+                        for row in db.execute_query(
+                            "SELECT DISTINCT match_id FROM tournament_matches", ()
+                        )
                     ),
                 )
 

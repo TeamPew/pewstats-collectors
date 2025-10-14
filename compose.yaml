@@ -263,6 +263,56 @@ services:
     networks:
       - pewstats-network
 
+  # Tournament Match Discovery - Discovers tournament matches with intelligent sampling
+  # Runs every 60 seconds during tournament hours (Mon-Thu, Sun 18:00-00:00)
+  # Only discovers custom esports matches from Oct 13, 2025 onwards
+  tournament-discovery:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: [
+      "python3", "-m", "pewstats_collectors.services.tournament_match_discovery",
+      "--continuous",
+      "--interval", "60",
+      "--sample-size", "6",
+      "--schedule-enabled",
+      "--schedule-days", "0,1,2,3,6",
+      "--schedule-start", "18:00",
+      "--schedule-end", "00:00"
+    ]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # PUBG API configuration
+      - PUBG_API_KEYS=${PUBG_API_KEYS}
+      - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
 networks:
   pewstats-network:
     external: true

@@ -740,7 +740,9 @@ class TournamentMatchDiscoveryService:
 )
 @click.option("--schedule-start", default="18:00", help="Start time HH:MM (default: 18:00)")
 @click.option("--schedule-end", default="00:00", help="End time HH:MM (default: 00:00)")
-@click.option("--schedule-timezone", default="Europe/Oslo", help="IANA timezone (default: Europe/Oslo)")
+@click.option(
+    "--schedule-timezone", default="Europe/Oslo", help="IANA timezone (default: Europe/Oslo)"
+)
 @click.option("--adaptive-sampling", is_flag=True, default=True, help="Enable adaptive sampling")
 def discover_tournament_matches(
     env_file: str,
@@ -893,7 +895,7 @@ def discover_tournament_matches(
         )
         if schedule_enabled:
             logger.info(
-                f"Schedule: {', '.join([['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] for d in days_of_week])} "
+                f"Schedule: {', '.join([['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d] for d in days_of_week])} "
                 f"{schedule_start}-{schedule_end} {schedule_timezone}"
             )
 

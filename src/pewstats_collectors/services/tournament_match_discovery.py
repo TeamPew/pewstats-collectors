@@ -504,8 +504,58 @@ class TournamentMatchDiscoveryService:
             self.logger.error(f"Failed to store tournament match: {e}")
             return 0
 
+    def _find_round_for_match(
+        self, match_datetime: str, division: str, group_name: Optional[str] = None
+    ) -> Optional[int]:
+        """Find the appropriate round_id for a match based on date and division.
+
+        Args:
+            match_datetime: Match datetime string from PUBG API
+            division: Division name (e.g., "Division 1")
+            group_name: Optional group name (e.g., "A", "B")
+
+        Returns:
+            round_id or None if no matching round found
+        """
+        try:
+            from datetime import datetime
+
+            # Parse match datetime
+            match_dt = datetime.fromisoformat(match_datetime.replace("Z", "+00:00"))
+            match_date = match_dt.date()
+
+            # Query for matching round
+            query = """
+            SELECT id FROM tournament_rounds
+            WHERE division = %s
+              AND (group_name = %s OR (group_name IS NULL AND %s IS NULL))
+              AND %s BETWEEN start_date AND end_date
+              AND status IN ('scheduled', 'active', 'completed')
+            ORDER BY round_number DESC
+            LIMIT 1
+            """
+
+            result = self.database.execute_query(
+                query, (division, group_name, group_name, match_date)
+            )
+
+            if result and len(result) > 0:
+                return result[0]["id"]
+
+            return None
+
+        except Exception as e:
+            self.logger.warning(f"Failed to find round for match: {e}")
+            return None
+
     def _match_players_to_teams(self, match_id: str) -> int:
-        """Match participants to teams based on player names.
+        """Match participants to teams and auto-populate new players.
+
+        Process:
+        1. Match known players (already in tournament_players) to teams
+        2. Auto-populate unknown players using pubg_team_id -> team_number mapping
+        3. Assign team_id to all participants
+        4. Assign round_id based on match datetime and team division/group
 
         Args:
             match_id: Match ID
@@ -514,7 +564,8 @@ class TournamentMatchDiscoveryService:
             Number of players matched
         """
         try:
-            query = """
+            # Step 1: Match known players (already in tournament_players) to teams
+            known_player_query = """
             UPDATE tournament_matches tm
             SET team_id = tp.team_id
             FROM tournament_players tp
@@ -523,8 +574,84 @@ class TournamentMatchDiscoveryService:
               AND tp.preferred_team = true
               AND tp.is_active = true
             """
+            self.database.execute_query(known_player_query, (match_id,), fetch=False)
 
-            self.database.execute_query(query, (match_id,), fetch=False)
+            # Step 2: Auto-populate unknown players to tournament_players
+            # For each unknown player in this match, find their team using pubg_team_id
+            autopop_query = """
+            WITH match_info AS (
+                -- Get the round info to determine division/group for this match
+                SELECT DISTINCT
+                    tm.match_id,
+                    tr.division,
+                    tr.group_name
+                FROM tournament_matches tm
+                JOIN tournament_rounds tr ON tm.round_id IS NOT NULL AND tr.id = tm.round_id
+                WHERE tm.match_id = %s
+                LIMIT 1
+            ),
+            unknown_players AS (
+                -- Find players not yet in tournament_players
+                SELECT DISTINCT
+                    tm.player_name,
+                    tm.pubg_team_id,
+                    mi.division,
+                    mi.group_name
+                FROM tournament_matches tm
+                CROSS JOIN match_info mi
+                WHERE tm.match_id = %s
+                  AND tm.team_id IS NULL
+                  AND tm.pubg_team_id IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM tournament_players tp
+                      WHERE tp.player_id = tm.player_name
+                  )
+            )
+            INSERT INTO tournament_players (player_id, team_id, preferred_team, is_primary_sample, sample_priority)
+            SELECT
+                up.player_name,
+                t.id,
+                true,
+                false,  -- Auto-populated players are not primary samples
+                0       -- Priority 0 for auto-populated
+            FROM unknown_players up
+            JOIN teams t ON t.team_number = up.pubg_team_id
+                AND t.division = up.division
+                AND (t.group_name = up.group_name OR (t.group_name IS NULL AND up.group_name IS NULL))
+            ON CONFLICT (player_id, team_id) DO NOTHING
+            """
+
+            # First, we need to assign round_id to enable the autopop query
+            # (it relies on round_id to determine division/group)
+            temp_round_assign = """
+            UPDATE tournament_matches tm
+            SET round_id = tr.id
+            FROM tournament_rounds tr
+            WHERE tm.match_id = %s
+              AND tm.match_datetime::date BETWEEN tr.start_date AND tr.end_date
+              AND tr.status IN ('scheduled', 'active', 'completed')
+              AND tm.round_id IS NULL
+            """
+            self.database.execute_query(temp_round_assign, (match_id,), fetch=False)
+
+            # Now run the auto-population
+            self.database.execute_query(autopop_query, (match_id, match_id), fetch=False)
+
+            # Step 3: Assign team_id to ALL participants (including newly populated)
+            # This handles both known players and auto-populated players
+            # Uses pubg_team_id (from match) -> team_number (from teams table)
+            all_players_query = """
+            UPDATE tournament_matches tm
+            SET team_id = t.id
+            FROM teams t, tournament_rounds tr
+            WHERE tm.match_id = %s
+              AND tm.round_id = tr.id
+              AND t.team_number = tm.pubg_team_id
+              AND t.division = tr.division
+              AND (t.group_name = tr.group_name OR (t.group_name IS NULL AND tr.group_name IS NULL))
+              AND tm.team_id IS NULL
+            """
+            self.database.execute_query(all_players_query, (match_id,), fetch=False)
 
             # Count how many were matched
             count_query = """

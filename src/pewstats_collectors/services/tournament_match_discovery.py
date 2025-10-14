@@ -627,16 +627,48 @@ class TournamentMatchDiscoveryService:
 
             # First, we need to assign round_id to enable the autopop query
             # (it relies on round_id to determine division/group)
+            # IMPORTANT: Only assign if ALL teams in the match belong to the round's division/group
+            # This prevents scrims/warmups with mixed divisions from being assigned to rounds
             temp_round_assign = """
+            WITH match_info AS (
+                -- Get match datetime and all unique teams
+                SELECT
+                    match_id,
+                    match_datetime,
+                    ARRAY_AGG(DISTINCT pubg_team_id) as team_ids
+                FROM tournament_matches
+                WHERE match_id = %s
+                  AND pubg_team_id IS NOT NULL
+                GROUP BY match_id, match_datetime
+            ),
+            valid_rounds AS (
+                -- Find rounds where ALL match teams belong to that round's division/group
+                SELECT tr.id as round_id
+                FROM tournament_rounds tr
+                CROSS JOIN match_info mi
+                WHERE mi.match_datetime::date BETWEEN tr.start_date AND tr.end_date
+                  AND tr.status IN ('scheduled', 'active', 'completed')
+                  -- Check that ALL teams in match belong to this division/group
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM UNNEST(mi.team_ids) AS team_num
+                      WHERE NOT EXISTS (
+                          SELECT 1
+                          FROM teams t
+                          WHERE t.team_number = team_num
+                            AND t.division = tr.division
+                            AND (t.group_name = tr.group_name OR (t.group_name IS NULL AND tr.group_name IS NULL))
+                      )
+                  )
+                LIMIT 1
+            )
             UPDATE tournament_matches tm
-            SET round_id = tr.id
-            FROM tournament_rounds tr
+            SET round_id = vr.round_id
+            FROM valid_rounds vr
             WHERE tm.match_id = %s
-              AND tm.match_datetime::date BETWEEN tr.start_date AND tr.end_date
-              AND tr.status IN ('scheduled', 'active', 'completed')
               AND tm.round_id IS NULL
             """
-            self.database.execute_query(temp_round_assign, (match_id,), fetch=False)
+            self.database.execute_query(temp_round_assign, (match_id, match_id), fetch=False)
 
             # Now run the auto-population
             self.database.execute_query(autopop_query, (match_id, match_id), fetch=False)

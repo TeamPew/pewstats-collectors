@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.16.2...v1.17.0) (2025-10-17)
+
+
+### Features
+
+* add parallel processing for telemetry worker ([b671d5a](https://github.com/TeamPew/pewstats-collectors/commit/b671d5acd94df00d882195f6117add636f727ed6))
+
 ## [1.16.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.16.1...v1.16.2) (2025-10-17)
 
 

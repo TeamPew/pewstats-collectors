@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.16.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.15.1...v1.16.0) (2025-10-17)
+
+
+### Features
+
+* add tournaments table and tournament leaderboard API design ([7fec510](https://github.com/TeamPew/pewstats-collectors/commit/7fec5106fa26d30a676b6cf777870212ef3c9617))
+
+
+### Bug Fixes
+
+* validate division/group before assigning matches to rounds ([9c7b9d1](https://github.com/TeamPew/pewstats-collectors/commit/9c7b9d1bca65f2e46f258276c9c6fad4c06958b4))
+* validate division/group before assigning matches to rounds ([733edb2](https://github.com/TeamPew/pewstats-collectors/commit/733edb2b817a11c125bcac1890a664ae2d8b0382))
+
 ## [1.15.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.15.0...v1.15.1) (2025-10-14)
 
 

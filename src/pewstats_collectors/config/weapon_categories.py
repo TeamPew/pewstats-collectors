@@ -253,7 +253,18 @@ CATEGORY_DISPLAY_NAMES: Dict[str, str] = {
 }
 
 # Tournament page only shows these categories (excludes Vehicle, Environment, Special)
-TOURNAMENT_CATEGORIES = ["AR", "DMR", "SR", "SMG", "Shotgun", "LMG", "Pistol", "Melee", "Throwable", "Other"]
+TOURNAMENT_CATEGORIES = [
+    "AR",
+    "DMR",
+    "SR",
+    "SMG",
+    "Shotgun",
+    "LMG",
+    "Pistol",
+    "Melee",
+    "Throwable",
+    "Other",
+]
 
 # ============================================================================
 # HELPER FUNCTIONS

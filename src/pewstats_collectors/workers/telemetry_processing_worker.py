@@ -1098,42 +1098,49 @@ class TelemetryProcessingWorker:
         Returns:
             Dict[player_name, stats_dict] with usage counts
         """
-        player_stats = defaultdict(lambda: {
-            'heals_used': 0,
-            'boosts_used': 0,
-            'throwables_used': 0,
-            'smokes_thrown': 0
-        })
+        player_stats = defaultdict(
+            lambda: {"heals_used": 0, "boosts_used": 0, "throwables_used": 0, "smokes_thrown": 0}
+        )
 
         # Item category mappings
-        heal_items = {'Item_Heal_FirstAid_C', 'Item_Heal_MedKit_C', 'Item_Heal_Bandage_C'}
-        boost_items = {'Item_Boost_EnergyDrink_C', 'Item_Boost_PainKiller_C', 'Item_Boost_AdrenalineSyringe_C'}
-        throwable_items = {'Item_Weapon_Grenade_C', 'Item_Weapon_Molotov_C', 'Item_Weapon_C4_C', 'Item_Weapon_StickyGrenade_C', 'Item_Weapon_PanzerFaust100M_C'}
-        smoke_items = {'Item_Weapon_SmokeBomb_C', 'Item_Weapon_Flashbang_C'}
+        heal_items = {"Item_Heal_FirstAid_C", "Item_Heal_MedKit_C", "Item_Heal_Bandage_C"}
+        boost_items = {
+            "Item_Boost_EnergyDrink_C",
+            "Item_Boost_PainKiller_C",
+            "Item_Boost_AdrenalineSyringe_C",
+        }
+        throwable_items = {
+            "Item_Weapon_Grenade_C",
+            "Item_Weapon_Molotov_C",
+            "Item_Weapon_C4_C",
+            "Item_Weapon_StickyGrenade_C",
+            "Item_Weapon_PanzerFaust100M_C",
+        }
+        smoke_items = {"Item_Weapon_SmokeBomb_C", "Item_Weapon_Flashbang_C"}
 
         for event in events:
             event_type = get_event_type(event)
 
-            if event_type != 'LogItemUse':
+            if event_type != "LogItemUse":
                 continue
 
-            character = event.get('character') or {}
-            player_name = character.get('name')
-            item = event.get('item') or {}
-            item_id = item.get('itemId')
+            character = event.get("character") or {}
+            player_name = character.get("name")
+            item = event.get("item") or {}
+            item_id = item.get("itemId")
 
             if not player_name or not item_id:
                 continue
 
             # Categorize and count
             if item_id in heal_items:
-                player_stats[player_name]['heals_used'] += 1
+                player_stats[player_name]["heals_used"] += 1
             elif item_id in boost_items:
-                player_stats[player_name]['boosts_used'] += 1
+                player_stats[player_name]["boosts_used"] += 1
             elif item_id in throwable_items:
-                player_stats[player_name]['throwables_used'] += 1
+                player_stats[player_name]["throwables_used"] += 1
             elif item_id in smoke_items:
-                player_stats[player_name]['smokes_thrown'] += 1
+                player_stats[player_name]["smokes_thrown"] += 1
 
         return dict(player_stats)
 
@@ -1153,11 +1160,9 @@ class TelemetryProcessingWorker:
         Returns:
             Dict[player_name, stats_dict] with advanced stats
         """
-        player_stats = defaultdict(lambda: {
-            'killsteals': 0,
-            'throwable_damage': 0.0,
-            'damage_received': 0.0
-        })
+        player_stats = defaultdict(
+            lambda: {"killsteals": 0, "throwable_damage": 0.0, "damage_received": 0.0}
+        )
 
         # Build damage timeline for killsteal detection
         damage_timeline = []  # (timestamp, attacker, victim, damage, weapon)
@@ -1167,39 +1172,41 @@ class TelemetryProcessingWorker:
         for event in events:
             event_type = get_event_type(event)
 
-            if event_type == 'LogPlayerTakeDamage':
-                attacker = event.get('attacker') or {}
-                victim = event.get('victim') or {}
-                attacker_name = attacker.get('name')
-                victim_name = victim.get('name')
-                damage = event.get('damage', 0)
-                timestamp = event.get('_D')
-                weapon = event.get('damageCauserName')
+            if event_type == "LogPlayerTakeDamage":
+                attacker = event.get("attacker") or {}
+                victim = event.get("victim") or {}
+                attacker_name = attacker.get("name")
+                victim_name = victim.get("name")
+                damage = event.get("damage", 0)
+                timestamp = event.get("_D")
+                weapon = event.get("damageCauserName")
 
                 if attacker_name and victim_name and timestamp:
-                    damage_timeline.append({
-                        'timestamp': timestamp,
-                        'attacker': attacker_name,
-                        'victim': victim_name,
-                        'damage': damage,
-                        'weapon': weapon
-                    })
+                    damage_timeline.append(
+                        {
+                            "timestamp": timestamp,
+                            "attacker": attacker_name,
+                            "victim": victim_name,
+                            "damage": damage,
+                            "weapon": weapon,
+                        }
+                    )
 
                 # Track damage received
                 if victim_name:
-                    player_stats[victim_name]['damage_received'] += damage
+                    player_stats[victim_name]["damage_received"] += damage
 
                 # Track throwable damage (by weapon category)
                 if attacker_name and weapon:
                     weapon_cat = get_weapon_category(weapon)
-                    if weapon_cat == 'Throwable':
-                        player_stats[attacker_name]['throwable_damage'] += damage
+                    if weapon_cat == "Throwable":
+                        player_stats[attacker_name]["throwable_damage"] += damage
 
-            elif event_type == 'LogPlayerKillV2':
-                killer = event.get('killer') or {}
-                dbno_id = event.get('dBNOId')
+            elif event_type == "LogPlayerKillV2":
+                killer = event.get("killer") or {}
+                dbno_id = event.get("dBNOId")
                 if dbno_id:
-                    kill_events[dbno_id] = killer.get('name')
+                    kill_events[dbno_id] = killer.get("name")
 
         # Pass 2: Detect killsteals
         # A killsteal occurs when:
@@ -1210,35 +1217,37 @@ class TelemetryProcessingWorker:
         for event in events:
             event_type = get_event_type(event)
 
-            if event_type == 'LogPlayerKillV2':
-                killer = event.get('killer') or {}
-                victim = event.get('victim') or {}
-                killer_name = killer.get('name')
-                victim_name = victim.get('name')
-                kill_time = event.get('_D')
+            if event_type == "LogPlayerKillV2":
+                killer = event.get("killer") or {}
+                victim = event.get("victim") or {}
+                killer_name = killer.get("name")
+                victim_name = victim.get("name")
+                kill_time = event.get("_D")
 
                 if not (killer_name and victim_name and kill_time):
                     continue
 
                 # Find recent damage to this victim
                 try:
-                    kill_dt = datetime.fromisoformat(kill_time.replace('Z', '+00:00'))
+                    kill_dt = datetime.fromisoformat(kill_time.replace("Z", "+00:00"))
 
                     # Check damage events in last 10 seconds
                     for dmg_event in damage_timeline:
-                        if dmg_event['victim'] != victim_name:
+                        if dmg_event["victim"] != victim_name:
                             continue
 
-                        if dmg_event['attacker'] == killer_name:
+                        if dmg_event["attacker"] == killer_name:
                             continue  # Killer did this damage, not a killsteal
 
                         try:
-                            dmg_dt = datetime.fromisoformat(dmg_event['timestamp'].replace('Z', '+00:00'))
+                            dmg_dt = datetime.fromisoformat(
+                                dmg_event["timestamp"].replace("Z", "+00:00")
+                            )
                             time_diff = (kill_dt - dmg_dt).total_seconds()
 
                             if 0 < time_diff <= 10:
                                 # This is a killsteal for the damage dealer
-                                player_stats[dmg_event['attacker']]['killsteals'] += 1
+                                player_stats[dmg_event["attacker"]]["killsteals"] += 1
                         except (ValueError, AttributeError):
                             pass
 
@@ -1266,13 +1275,15 @@ class TelemetryProcessingWorker:
             - aggregate_stats: Dict[player_name, stats] for match_summaries
             - detailed_positions: List[position_records] for player_circle_positions table (tracked only)
         """
-        player_samples = defaultdict(lambda: {
-            'distances_center': [],
-            'distances_edge': [],
-            'outside_zone_count': 0,
-            'total_samples': 0,
-            'positions': []  # Detailed data (will be filtered)
-        })
+        player_samples = defaultdict(
+            lambda: {
+                "distances_center": [],
+                "distances_edge": [],
+                "outside_zone_count": 0,
+                "total_samples": 0,
+                "positions": [],  # Detailed data (will be filtered)
+            }
+        )
 
         # Get tracked players for filtering detailed storage
         tracked_players = self._get_tracked_players_set()
@@ -1280,83 +1291,92 @@ class TelemetryProcessingWorker:
         for event in events:
             event_type = get_event_type(event)
 
-            if event_type != 'LogGameStatePeriodic':
+            if event_type != "LogGameStatePeriodic":
                 continue
 
             # Get safe zone info
-            game_state = event.get('gameState') or {}
-            safety_zone_position = game_state.get('safetyZonePosition') or {}
-            safety_zone_radius = game_state.get('safetyZoneRadius', 0)
+            game_state = event.get("gameState") or {}
+            safety_zone_position = game_state.get("safetyZonePosition") or {}
+            safety_zone_radius = game_state.get("safetyZoneRadius", 0)
 
-            center_x = safety_zone_position.get('x', 0)
-            center_y = safety_zone_position.get('y', 0)
+            center_x = safety_zone_position.get("x", 0)
+            center_y = safety_zone_position.get("y", 0)
 
             # Get elapsed time
-            elapsed_time = game_state.get('elapsedTime', 0)
+            elapsed_time = game_state.get("elapsedTime", 0)
 
             # Process each character in the game state
-            characters = event.get('characters') or []
+            characters = event.get("characters") or []
             for character in characters:
-                player_name = character.get('name')
+                player_name = character.get("name")
                 if not player_name:
                     continue
 
-                location = character.get('location') or {}
-                player_x = location.get('x', 0)
-                player_y = location.get('y', 0)
+                location = character.get("location") or {}
+                player_x = location.get("x", 0)
+                player_y = location.get("y", 0)
 
                 # Calculate distance from center (2D distance)
-                distance_from_center = math.sqrt(
-                    (player_x - center_x) ** 2 + (player_y - center_y) ** 2
-                ) / 100  # Convert to meters
+                distance_from_center = (
+                    math.sqrt((player_x - center_x) ** 2 + (player_y - center_y) ** 2) / 100
+                )  # Convert to meters
 
                 # Calculate distance from edge (negative = outside zone)
                 distance_from_edge = (safety_zone_radius - distance_from_center * 100) / 100
                 is_in_safe_zone = distance_from_edge >= 0
 
                 # Store aggregate data (for ALL players)
-                player_samples[player_name]['distances_center'].append(distance_from_center)
-                player_samples[player_name]['distances_edge'].append(distance_from_edge)
-                player_samples[player_name]['total_samples'] += 1
+                player_samples[player_name]["distances_center"].append(distance_from_center)
+                player_samples[player_name]["distances_edge"].append(distance_from_edge)
+                player_samples[player_name]["total_samples"] += 1
 
                 if not is_in_safe_zone:
-                    player_samples[player_name]['outside_zone_count'] += 1
+                    player_samples[player_name]["outside_zone_count"] += 1
 
                 # Store detailed position ONLY for tracked players
                 if player_name in tracked_players:
-                    player_samples[player_name]['positions'].append({
-                        'match_id': match_id,
-                        'player_name': player_name,
-                        'elapsed_time': elapsed_time,
-                        'player_x': player_x / 100,  # Convert to meters
-                        'player_y': player_y / 100,
-                        'safe_zone_center_x': center_x / 100,
-                        'safe_zone_center_y': center_y / 100,
-                        'safe_zone_radius': safety_zone_radius / 100,
-                        'distance_from_center': distance_from_center,
-                        'distance_from_edge': distance_from_edge,
-                        'is_in_safe_zone': is_in_safe_zone
-                    })
+                    player_samples[player_name]["positions"].append(
+                        {
+                            "match_id": match_id,
+                            "player_name": player_name,
+                            "elapsed_time": elapsed_time,
+                            "player_x": player_x / 100,  # Convert to meters
+                            "player_y": player_y / 100,
+                            "safe_zone_center_x": center_x / 100,
+                            "safe_zone_center_y": center_y / 100,
+                            "safe_zone_radius": safety_zone_radius / 100,
+                            "distance_from_center": distance_from_center,
+                            "distance_from_edge": distance_from_edge,
+                            "is_in_safe_zone": is_in_safe_zone,
+                        }
+                    )
 
         # Calculate aggregate stats for ALL players
         aggregate_stats = {}
         for player_name, samples in player_samples.items():
-            if samples['total_samples'] == 0:
+            if samples["total_samples"] == 0:
                 continue
 
             aggregate_stats[player_name] = {
-                'avg_distance_from_center': sum(samples['distances_center']) / len(samples['distances_center']),
-                'avg_distance_from_edge': sum(samples['distances_edge']) / len(samples['distances_edge']),
-                'max_distance_from_center': max(samples['distances_center']) if samples['distances_center'] else None,
-                'min_distance_from_edge': min(samples['distances_edge']) if samples['distances_edge'] else None,
-                'time_outside_zone_seconds': samples['outside_zone_count'] * 5  # Assuming 5-second sampling
+                "avg_distance_from_center": sum(samples["distances_center"])
+                / len(samples["distances_center"]),
+                "avg_distance_from_edge": sum(samples["distances_edge"])
+                / len(samples["distances_edge"]),
+                "max_distance_from_center": max(samples["distances_center"])
+                if samples["distances_center"]
+                else None,
+                "min_distance_from_edge": min(samples["distances_edge"])
+                if samples["distances_edge"]
+                else None,
+                "time_outside_zone_seconds": samples["outside_zone_count"]
+                * 5,  # Assuming 5-second sampling
             }
 
         # Collect detailed positions (tracked players only)
         detailed_positions = []
         for player_name in tracked_players:
             if player_name in player_samples:
-                detailed_positions.extend(player_samples[player_name]['positions'])
+                detailed_positions.extend(player_samples[player_name]["positions"])
 
         return aggregate_stats, detailed_positions
 
@@ -1376,44 +1396,41 @@ class TelemetryProcessingWorker:
         Returns:
             Dict[player_name, Dict[category, stats]] with damage/kills per category
         """
-        player_weapon_stats = defaultdict(lambda: defaultdict(lambda: {
-            'total_damage': 0.0,
-            'total_kills': 0,
-            'knock_downs': 0
-        }))
+        player_weapon_stats = defaultdict(
+            lambda: defaultdict(lambda: {"total_damage": 0.0, "total_kills": 0, "knock_downs": 0})
+        )
 
         # Pass 1: Collect damage by weapon category
         for event in events:
             event_type = get_event_type(event)
 
-            if event_type == 'LogPlayerTakeDamage':
-                attacker = event.get('attacker') or {}
-                attacker_name = attacker.get('name')
-                damage = event.get('damage', 0)
-                weapon_id = event.get('damageCauserName')
+            if event_type == "LogPlayerTakeDamage":
+                attacker = event.get("attacker") or {}
+                attacker_name = attacker.get("name")
+                damage = event.get("damage", 0)
+                weapon_id = event.get("damageCauserName")
 
                 if attacker_name and weapon_id:
                     category = get_weapon_category(weapon_id)
-                    player_weapon_stats[attacker_name][category]['total_damage'] += damage
+                    player_weapon_stats[attacker_name][category]["total_damage"] += damage
 
-            elif event_type == 'LogPlayerKillV2':
-                killer = event.get('killer') or {}
-                killer_name = killer.get('name')
-                damage_reason = event.get('damageReason')
-                damage_causer = event.get('damageCauserName')
+            elif event_type == "LogPlayerKillV2":
+                killer = event.get("killer") or {}
+                killer_name = killer.get("name")
+                damage_causer = event.get("damageCauserName")
 
                 if killer_name and damage_causer:
                     category = get_weapon_category(damage_causer)
-                    player_weapon_stats[killer_name][category]['total_kills'] += 1
+                    player_weapon_stats[killer_name][category]["total_kills"] += 1
 
-            elif event_type == 'LogPlayerMakeGroggy':
-                attacker = event.get('attacker') or {}
-                attacker_name = attacker.get('name')
-                weapon_id = event.get('damageCauserName')
+            elif event_type == "LogPlayerMakeGroggy":
+                attacker = event.get("attacker") or {}
+                attacker_name = attacker.get("name")
+                weapon_id = event.get("damageCauserName")
 
                 if attacker_name and weapon_id:
                     category = get_weapon_category(weapon_id)
-                    player_weapon_stats[attacker_name][category]['knock_downs'] += 1
+                    player_weapon_stats[attacker_name][category]["knock_downs"] += 1
 
         # Convert to regular dict
         result = {}
@@ -1718,14 +1735,16 @@ class TelemetryProcessingWorker:
             weapon_dist_records = []
             for player_name, categories in weapon_distribution.items():
                 for category, stats in categories.items():
-                    weapon_dist_records.append({
-                        'match_id': match_id,
-                        'player_name': player_name,
-                        'weapon_category': category,
-                        'total_damage': stats['total_damage'],
-                        'total_kills': stats['total_kills'],
-                        'knock_downs': stats['knock_downs']
-                    })
+                    weapon_dist_records.append(
+                        {
+                            "match_id": match_id,
+                            "player_name": player_name,
+                            "weapon_category": category,
+                            "total_damage": stats["total_damage"],
+                            "total_kills": stats["total_kills"],
+                            "knock_downs": stats["knock_downs"],
+                        }
+                    )
 
             if weapon_dist_records:
                 inserted = self.database_manager.insert_weapon_distribution(weapon_dist_records)

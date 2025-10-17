@@ -1266,6 +1266,9 @@ class TelemetryProcessingWorker:
         Calculates aggregate stats for ALL players (for match_summaries).
         Stores detailed position data only for tracked players (87.5% savings).
 
+        Note: LogGameStatePeriodic doesn't contain character positions, so we must
+        combine it with LogPlayerPosition events.
+
         Args:
             events: List of telemetry events
             match_id: Match ID
@@ -1276,6 +1279,33 @@ class TelemetryProcessingWorker:
             - aggregate_stats: Dict[player_name, stats] for match_summaries
             - detailed_positions: List[position_records] for player_circle_positions table (tracked only)
         """
+        # Step 1: Build timeline of circle states from LogGameStatePeriodic
+        circle_states = []
+        for event in events:
+            event_type = get_event_type(event)
+            if event_type != "LogGameStatePeriodic":
+                continue
+
+            game_state = event.get("gameState") or {}
+            safety_zone_position = game_state.get("safetyZonePosition") or {}
+
+            circle_states.append(
+                {
+                    "elapsed_time": game_state.get("elapsedTime", 0),
+                    "center_x": safety_zone_position.get("x", 0),
+                    "center_y": safety_zone_position.get("y", 0),
+                    "radius": game_state.get("safetyZoneRadius", 0),
+                }
+            )
+
+        # Sort by elapsed time for efficient lookup
+        circle_states.sort(key=lambda x: x["elapsed_time"])
+
+        if not circle_states:
+            # No circle data available
+            return {}, []
+
+        # Step 2: Process LogPlayerPosition events and match to circle states
         player_samples = defaultdict(
             lambda: {
                 "distances_center": [],
@@ -1289,68 +1319,70 @@ class TelemetryProcessingWorker:
         # Get tracked players for filtering detailed storage
         tracked_players = self._get_tracked_players_set()
 
+        # Helper function to find nearest circle state
+        def find_circle_state(elapsed_time):
+            # Binary search or simple iteration (linear is fine for ~100 states)
+            for i, state in enumerate(circle_states):
+                if state["elapsed_time"] >= elapsed_time:
+                    return state
+            # Return last state if time is after all states
+            return circle_states[-1]
+
         for event in events:
             event_type = get_event_type(event)
-
-            if event_type != "LogGameStatePeriodic":
+            if event_type != "LogPlayerPosition":
                 continue
 
-            # Get safe zone info
-            game_state = event.get("gameState") or {}
-            safety_zone_position = game_state.get("safetyZonePosition") or {}
-            safety_zone_radius = game_state.get("safetyZoneRadius", 0)
+            character = event.get("character") or {}
+            player_name = character.get("name")
+            if not player_name:
+                continue
 
-            center_x = safety_zone_position.get("x", 0)
-            center_y = safety_zone_position.get("y", 0)
+            location = character.get("location") or {}
+            player_x = location.get("x", 0)
+            player_y = location.get("y", 0)
+            elapsed_time = event.get("elapsedTime", 0)
 
-            # Get elapsed time
-            elapsed_time = game_state.get("elapsedTime", 0)
+            # Find corresponding circle state
+            circle = find_circle_state(elapsed_time)
+            center_x = circle["center_x"]
+            center_y = circle["center_y"]
+            radius = circle["radius"]
 
-            # Process each character in the game state
-            characters = event.get("characters") or []
-            for character in characters:
-                player_name = character.get("name")
-                if not player_name:
-                    continue
+            # Calculate distance from center (2D distance, convert to meters)
+            distance_from_center = (
+                math.sqrt((player_x - center_x) ** 2 + (player_y - center_y) ** 2) / 100
+            )
 
-                location = character.get("location") or {}
-                player_x = location.get("x", 0)
-                player_y = location.get("y", 0)
+            # Calculate distance from edge (convert to meters)
+            distance_from_edge = (radius - distance_from_center * 100) / 100
+            is_in_safe_zone = distance_from_edge >= 0
 
-                # Calculate distance from center (2D distance)
-                distance_from_center = (
-                    math.sqrt((player_x - center_x) ** 2 + (player_y - center_y) ** 2) / 100
-                )  # Convert to meters
+            # Store aggregate data (for ALL players)
+            player_samples[player_name]["distances_center"].append(distance_from_center)
+            player_samples[player_name]["distances_edge"].append(distance_from_edge)
+            player_samples[player_name]["total_samples"] += 1
 
-                # Calculate distance from edge (negative = outside zone)
-                distance_from_edge = (safety_zone_radius - distance_from_center * 100) / 100
-                is_in_safe_zone = distance_from_edge >= 0
+            if not is_in_safe_zone:
+                player_samples[player_name]["outside_zone_count"] += 1
 
-                # Store aggregate data (for ALL players)
-                player_samples[player_name]["distances_center"].append(distance_from_center)
-                player_samples[player_name]["distances_edge"].append(distance_from_edge)
-                player_samples[player_name]["total_samples"] += 1
-
-                if not is_in_safe_zone:
-                    player_samples[player_name]["outside_zone_count"] += 1
-
-                # Store detailed position ONLY for tracked players
-                if player_name in tracked_players:
-                    player_samples[player_name]["positions"].append(
-                        {
-                            "match_id": match_id,
-                            "player_name": player_name,
-                            "elapsed_time": elapsed_time,
-                            "player_x": player_x / 100,  # Convert to meters
-                            "player_y": player_y / 100,
-                            "safe_zone_center_x": center_x / 100,
-                            "safe_zone_center_y": center_y / 100,
-                            "safe_zone_radius": safety_zone_radius / 100,
-                            "distance_from_center": distance_from_center,
-                            "distance_from_edge": distance_from_edge,
-                            "is_in_safe_zone": is_in_safe_zone,
-                        }
-                    )
+            # Store detailed position ONLY for tracked players
+            if player_name in tracked_players:
+                player_samples[player_name]["positions"].append(
+                    {
+                        "match_id": match_id,
+                        "player_name": player_name,
+                        "elapsed_time": int(elapsed_time),
+                        "player_x": player_x / 100,  # Convert to meters
+                        "player_y": player_y / 100,
+                        "safe_zone_center_x": center_x / 100,
+                        "safe_zone_center_y": center_y / 100,
+                        "safe_zone_radius": radius / 100,
+                        "distance_from_center": distance_from_center,
+                        "distance_from_edge": distance_from_edge,
+                        "is_in_safe_zone": is_in_safe_zone,
+                    }
+                )
 
         # Calculate aggregate stats for ALL players
         aggregate_stats = {}
@@ -1370,7 +1402,7 @@ class TelemetryProcessingWorker:
                 if samples["distances_edge"]
                 else None,
                 "time_outside_zone_seconds": samples["outside_zone_count"]
-                * 5,  # Assuming 5-second sampling
+                * 1,  # Each LogPlayerPosition is roughly 1 second
             }
 
         # Collect detailed positions (tracked players only)

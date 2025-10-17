@@ -629,37 +629,51 @@ class TournamentMatchDiscoveryService:
             # (it relies on round_id to determine division/group)
             # IMPORTANT: Only assign if ALL teams in the match belong to the round's division/group
             # This prevents scrims/warmups with mixed divisions from being assigned to rounds
+            #
+            # NOTE: pubg_team_id (lobby slot 1-16) is NOT unique across divisions!
+            # Instead, we identify teams by matching player names to tournament_players.
             temp_round_assign = """
-            WITH match_info AS (
-                -- Get match datetime and all unique teams
+            WITH match_teams AS (
+                -- Identify teams in this match by matching player names to tournament_players
+                SELECT DISTINCT
+                    tm.match_id,
+                    tm.match_datetime,
+                    t.id as team_id,
+                    t.division,
+                    t.group_name
+                FROM tournament_matches tm
+                JOIN tournament_players tp ON tp.player_id = tm.player_name
+                    AND tp.preferred_team = true
+                    AND tp.is_active = true
+                JOIN teams t ON t.id = tp.team_id
+                    AND t.is_active = true
+                WHERE tm.match_id = %s
+            ),
+            division_check AS (
+                -- Check if match has exactly ONE division and ONE division+group combination
                 SELECT
                     match_id,
                     match_datetime,
-                    ARRAY_AGG(DISTINCT pubg_team_id) as team_ids
-                FROM tournament_matches
-                WHERE match_id = %s
-                  AND pubg_team_id IS NOT NULL
+                    COUNT(DISTINCT division) as division_count,
+                    COUNT(DISTINCT (division, group_name)) as division_group_count,
+                    -- Get the division/group if there's only one
+                    MAX(division) as match_division,
+                    MAX(group_name) as match_group,
+                    COUNT(DISTINCT team_id) as team_count
+                FROM match_teams
                 GROUP BY match_id, match_datetime
             ),
             valid_rounds AS (
-                -- Find rounds where ALL match teams belong to that round's division/group
+                -- Find round ONLY if all teams belong to same division/group
                 SELECT tr.id as round_id
                 FROM tournament_rounds tr
-                CROSS JOIN match_info mi
-                WHERE mi.match_datetime::date BETWEEN tr.start_date AND tr.end_date
+                JOIN division_check dc ON dc.match_datetime::date BETWEEN tr.start_date AND tr.end_date
+                WHERE dc.division_count = 1  -- All teams must be from same division
+                  AND dc.division_group_count = 1  -- All teams must be from same division+group
+                  AND dc.team_count >= 8  -- Sanity check: at least 8 teams in match
+                  AND tr.division = dc.match_division
+                  AND (tr.group_name = dc.match_group OR (tr.group_name IS NULL AND dc.match_group IS NULL))
                   AND tr.status IN ('scheduled', 'active', 'completed')
-                  -- Check that ALL teams in match belong to this division/group
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM UNNEST(mi.team_ids) AS team_num
-                      WHERE NOT EXISTS (
-                          SELECT 1
-                          FROM teams t
-                          WHERE t.team_number = team_num
-                            AND t.division = tr.division
-                            AND (t.group_name = tr.group_name OR (t.group_name IS NULL AND tr.group_name IS NULL))
-                      )
-                  )
                 LIMIT 1
             )
             UPDATE tournament_matches tm

@@ -1,0 +1,832 @@
+{
+  "api_version": "v1",
+  "base_url": "https://api.pewstats.com/v1",
+  "hierarchy": {
+    "description": "Tournament → Season → Round → Match",
+    "relationships": {
+      "tournament": "Can have many seasons (e.g., 'Norgesligaen' has Fall 2025, Spring 2026, etc.)",
+      "season": "Belongs to one tournament, can have many rounds",
+      "round": "Belongs to one season, can have many matches (typically 6)",
+      "match": "Belongs to one round"
+    }
+  },
+  "endpoints": [
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/rounds/{round_id}/matches/{match_id}/teams/leaderboard",
+      "description": "Team leaderboard for a single match",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier (e.g., 1 for 'Norgesligaen')",
+        "season_id": "Season identifier (e.g., 1 for 'Fall 2025')",
+        "round_id": "Round identifier (e.g., 15 for 'Round 1')",
+        "match_id": "Match UUID from PUBG API"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "season_code": "2025-FALL",
+          "round_id": 15,
+          "round_number": 1,
+          "round_name": "Round 1",
+          "division": "Division 2",
+          "group_name": "Group A",
+          "match_id": "a60104aa-05df-4fb7-8f9f-28b5538f219f",
+          "match_datetime": "2025-10-14T18:30:00Z",
+          "map_name": "Erangel",
+          "game_mode": "squad-fpp"
+        },
+        "teams": [
+          {
+            "team_id": 42,
+            "team_name": "EGKT",
+            "team_number": 8,
+            "division": "Division 2",
+            "group_name": "Group A",
+            "placement": 1,
+            "placement_points": 10,
+            "kills": 12,
+            "total_score": 22,
+            "damage": 4523.45,
+            "won": true,
+            "team_stats": {
+              "avg_damage_per_player": 1130.86,
+              "survival_time": 1845
+            }
+          },
+          {
+            "team_id": 43,
+            "team_name": "Team Alpha",
+            "team_number": 12,
+            "division": "Division 2",
+            "group_name": "Group A",
+            "placement": 2,
+            "placement_points": 6,
+            "kills": 8,
+            "total_score": 14,
+            "damage": 3892.12,
+            "won": false,
+            "team_stats": {
+              "avg_damage_per_player": 973.03,
+              "survival_time": 1820
+            }
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/rounds/{round_id}/teams/leaderboard",
+      "description": "Team leaderboard for an entire round (aggregated across all matches in the round)",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier",
+        "season_id": "Season identifier",
+        "round_id": "Round identifier"
+      },
+      "query_params": {
+        "division": "Filter by division (e.g., 'Division 2')",
+        "group": "Filter by group (e.g., 'Group A')"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "season_code": "2025-FALL",
+          "round_id": 15,
+          "round_number": 1,
+          "round_name": "Round 1",
+          "division": "Division 2",
+          "group_name": "Group A",
+          "start_date": "2025-10-14",
+          "end_date": "2025-10-14",
+          "status": "completed",
+          "expected_matches": 6,
+          "actual_matches": 6,
+          "points_config": {
+            "1": 10,
+            "2": 6,
+            "3": 5,
+            "4": 4,
+            "5": 3,
+            "6": 2,
+            "7": 1,
+            "8": 1
+          }
+        },
+        "teams": [
+          {
+            "rank": 1,
+            "team_id": 42,
+            "team_name": "EGKT",
+            "team_number": 8,
+            "division": "Division 2",
+            "group_name": "Group A",
+            "matches_played": 6,
+            "wins": 2,
+            "total_placement_points": 38,
+            "total_kills": 42,
+            "total_score": 80,
+            "total_damage": 24567.89,
+            "avg_placement": 3.83,
+            "avg_kills_per_match": 7.0,
+            "avg_damage_per_match": 4094.65,
+            "best_placement": 1,
+            "worst_placement": 8,
+            "match_breakdown": [
+              {
+                "match_id": "a60104aa-05df-4fb7-8f9f-28b5538f219f",
+                "match_datetime": "2025-10-14T18:30:00Z",
+                "placement": 1,
+                "placement_points": 10,
+                "kills": 12,
+                "score": 22,
+                "damage": 4523.45,
+                "map_name": "Erangel"
+              },
+              {
+                "match_id": "b71205bb-16e8-5gc8-9g0g-39c6649f330g",
+                "match_datetime": "2025-10-14T19:45:00Z",
+                "placement": 2,
+                "placement_points": 6,
+                "kills": 8,
+                "score": 14,
+                "damage": 3892.12,
+                "map_name": "Miramar"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/teams/leaderboard",
+      "description": "Team leaderboard for an entire season (aggregated across all rounds)",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier",
+        "season_id": "Season identifier"
+      },
+      "query_params": {
+        "division": "Filter by division (e.g., 'Division 2')",
+        "group": "Filter by group (e.g., 'Group A')"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "season_code": "2025-FALL",
+          "start_date": "2025-10-14",
+          "end_date": "2025-12-15",
+          "status": "active",
+          "total_rounds": 8,
+          "completed_rounds": 2,
+          "points_config": {
+            "1": 10,
+            "2": 6,
+            "3": 5,
+            "4": 4,
+            "5": 3,
+            "6": 2,
+            "7": 1,
+            "8": 1
+          }
+        },
+        "teams": [
+          {
+            "rank": 1,
+            "team_id": 42,
+            "team_name": "EGKT",
+            "team_number": 8,
+            "division": "Division 2",
+            "group_name": "Group A",
+            "total_matches": 12,
+            "total_wins": 3,
+            "total_placement_points": 75,
+            "total_kills": 89,
+            "total_score": 164,
+            "total_damage": 51234.56,
+            "avg_placement": 4.25,
+            "avg_kills_per_match": 7.42,
+            "avg_damage_per_match": 4269.55,
+            "avg_score_per_match": 13.67,
+            "best_placement": 1,
+            "worst_placement": 12,
+            "rounds_breakdown": [
+              {
+                "round_id": 15,
+                "round_number": 1,
+                "round_name": "Round 1",
+                "matches_played": 6,
+                "wins": 2,
+                "placement_points": 38,
+                "kills": 42,
+                "total_score": 80,
+                "avg_placement": 3.83
+              },
+              {
+                "round_id": 16,
+                "round_number": 2,
+                "round_name": "Round 2",
+                "matches_played": 6,
+                "wins": 1,
+                "placement_points": 37,
+                "kills": 47,
+                "total_score": 84,
+                "avg_placement": 4.67
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/rounds/{round_id}/matches/{match_id}/players/stats",
+      "description": "Player statistics for a single match",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier",
+        "season_id": "Season identifier",
+        "round_id": "Round identifier",
+        "match_id": "Match UUID"
+      },
+      "query_params": {
+        "team_id": "Filter by team ID",
+        "page": "Page number (default: 1)",
+        "limit": "Results per page (default: 50, max: 100)"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "season_code": "2025-FALL",
+          "round_id": 15,
+          "round_number": 1,
+          "round_name": "Round 1",
+          "division": "Division 2",
+          "group_name": "Group A",
+          "match_id": "a60104aa-05df-4fb7-8f9f-28b5538f219f",
+          "match_datetime": "2025-10-14T18:30:00Z",
+          "map_name": "Erangel",
+          "game_mode": "squad-fpp",
+          "pagination": {
+            "page": 1,
+            "limit": 50,
+            "total_players": 64,
+            "total_pages": 2
+          }
+        },
+        "players": [
+          {
+            "player_name": "ProPlayer123",
+            "player_account_id": "account.abc123def456ghi789",
+            "team_id": 42,
+            "team_name": "EGKT",
+            "team_number": 8,
+            "division": "Division 2",
+            "group_name": "Group A",
+            "team_placement": 1,
+            "team_won": true,
+            "stats": {
+              "kills": 5,
+              "damage": 1245.67,
+              "knocks": 7,
+              "revives": 2,
+              "assists": 3,
+              "headshot_kills": 2,
+              "longest_kill": 234.5,
+              "time_survived": 1845,
+              "walk_distance": 2456.3,
+              "ride_distance": 1234.5,
+              "heals": 8,
+              "boosts": 12,
+              "weapons_acquired": 15,
+              "death_type": "alive"
+            }
+          },
+          {
+            "player_name": "AnotherPlayer",
+            "player_account_id": "account.def456ghi789jkl012",
+            "team_id": 42,
+            "team_name": "EGKT",
+            "team_number": 8,
+            "division": "Division 2",
+            "group_name": "Group A",
+            "team_placement": 1,
+            "team_won": true,
+            "stats": {
+              "kills": 3,
+              "damage": 987.23,
+              "knocks": 4,
+              "revives": 1,
+              "assists": 2,
+              "headshot_kills": 1,
+              "longest_kill": 156.2,
+              "time_survived": 1845,
+              "walk_distance": 3012.7,
+              "ride_distance": 890.2,
+              "heals": 6,
+              "boosts": 10,
+              "weapons_acquired": 12,
+              "death_type": "alive"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/rounds/{round_id}/players/stats",
+      "description": "Player statistics aggregated for an entire round",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier",
+        "season_id": "Season identifier",
+        "round_id": "Round identifier"
+      },
+      "query_params": {
+        "team_id": "Filter by team ID",
+        "division": "Filter by division",
+        "group": "Filter by group",
+        "sort_by": "Sort by field (kills, damage, knocks, revives, assists)",
+        "order": "Sort order (asc, desc). Default: desc",
+        "page": "Page number (default: 1)",
+        "limit": "Results per page (default: 50, max: 100)"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "season_code": "2025-FALL",
+          "round_id": 15,
+          "round_number": 1,
+          "round_name": "Round 1",
+          "division": "Division 2",
+          "group_name": "Group A",
+          "start_date": "2025-10-14",
+          "end_date": "2025-10-14",
+          "total_matches": 6,
+          "pagination": {
+            "page": 1,
+            "limit": 50,
+            "total_players": 96,
+            "total_pages": 2
+          }
+        },
+        "players": [
+          {
+            "rank": 1,
+            "player_name": "ProPlayer123",
+            "player_account_id": "account.abc123def456ghi789",
+            "team_id": 42,
+            "team_name": "EGKT",
+            "team_number": 8,
+            "division": "Division 2",
+            "group_name": "Group A",
+            "matches_played": 6,
+            "aggregated_stats": {
+              "total_kills": 28,
+              "total_damage": 7234.56,
+              "total_knocks": 35,
+              "total_revives": 12,
+              "total_assists": 18,
+              "avg_kills_per_match": 4.67,
+              "avg_damage_per_match": 1205.76,
+              "avg_knocks_per_match": 5.83,
+              "avg_revives_per_match": 2.0,
+              "avg_assists_per_match": 3.0,
+              "headshot_kills": 12,
+              "headshot_percentage": 42.86,
+              "longest_kill": 345.2,
+              "avg_survival_time": 1567,
+              "total_walk_distance": 14234.5,
+              "total_ride_distance": 6789.3
+            },
+            "match_breakdown": [
+              {
+                "match_id": "a60104aa-05df-4fb7-8f9f-28b5538f219f",
+                "match_datetime": "2025-10-14T18:30:00Z",
+                "map_name": "Erangel",
+                "team_placement": 1,
+                "kills": 5,
+                "damage": 1245.67,
+                "knocks": 7,
+                "revives": 2,
+                "assists": 3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/players/stats",
+      "description": "Player statistics aggregated for an entire season",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier",
+        "season_id": "Season identifier"
+      },
+      "query_params": {
+        "team_id": "Filter by team ID",
+        "division": "Filter by division",
+        "group": "Filter by group",
+        "sort_by": "Sort by field (kills, damage, knocks, revives, assists)",
+        "order": "Sort order (asc, desc). Default: desc",
+        "page": "Page number (default: 1)",
+        "limit": "Results per page (default: 50, max: 100)"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "season_code": "2025-FALL",
+          "start_date": "2025-10-14",
+          "end_date": "2025-12-15",
+          "total_rounds": 8,
+          "completed_rounds": 2,
+          "total_matches": 96,
+          "pagination": {
+            "page": 1,
+            "limit": 50,
+            "total_players": 256,
+            "total_pages": 6
+          }
+        },
+        "players": [
+          {
+            "rank": 1,
+            "player_name": "ProPlayer123",
+            "player_account_id": "account.abc123def456ghi789",
+            "team_id": 42,
+            "team_name": "EGKT",
+            "team_number": 8,
+            "division": "Division 2",
+            "group_name": "Group A",
+            "total_matches": 12,
+            "aggregated_stats": {
+              "total_kills": 56,
+              "total_damage": 15234.89,
+              "total_knocks": 72,
+              "total_revives": 24,
+              "total_assists": 38,
+              "avg_kills_per_match": 4.67,
+              "avg_damage_per_match": 1269.57,
+              "avg_knocks_per_match": 6.0,
+              "avg_revives_per_match": 2.0,
+              "avg_assists_per_match": 3.17,
+              "headshot_kills": 24,
+              "headshot_percentage": 42.86,
+              "longest_kill": 456.7,
+              "avg_survival_time": 1623,
+              "total_walk_distance": 28456.3,
+              "total_ride_distance": 13245.8
+            },
+            "rounds_breakdown": [
+              {
+                "round_id": 15,
+                "round_number": 1,
+                "round_name": "Round 1",
+                "matches_played": 6,
+                "total_kills": 28,
+                "total_damage": 7234.56,
+                "avg_kills_per_match": 4.67,
+                "avg_damage_per_match": 1205.76
+              },
+              {
+                "round_id": 16,
+                "round_number": 2,
+                "round_name": "Round 2",
+                "matches_played": 6,
+                "total_kills": 28,
+                "total_damage": 8000.33,
+                "avg_kills_per_match": 4.67,
+                "avg_damage_per_match": 1333.39
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/rounds/{round_id}/leaderboard",
+      "description": "Combined leaderboard showing both team standings and top players for a round",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier",
+        "season_id": "Season identifier",
+        "round_id": "Round identifier"
+      },
+      "query_params": {
+        "division": "Filter by division",
+        "group": "Filter by group",
+        "top_players_limit": "Number of top players to return (default: 10)"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "season_code": "2025-FALL",
+          "round_id": 15,
+          "round_number": 1,
+          "round_name": "Round 1",
+          "division": "Division 2",
+          "group_name": "Group A",
+          "start_date": "2025-10-14",
+          "end_date": "2025-10-14",
+          "status": "completed",
+          "expected_matches": 6,
+          "actual_matches": 6
+        },
+        "team_standings": [
+          {
+            "rank": 1,
+            "team_id": 42,
+            "team_name": "EGKT",
+            "matches_played": 6,
+            "wins": 2,
+            "total_score": 80,
+            "total_kills": 42,
+            "total_damage": 24567.89
+          }
+        ],
+        "top_players": [
+          {
+            "rank": 1,
+            "player_name": "ProPlayer123",
+            "team_name": "EGKT",
+            "total_kills": 28,
+            "total_damage": 7234.56,
+            "avg_kills_per_match": 4.67
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/standings",
+      "description": "Overview of all division/group standings for a season",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier",
+        "season_id": "Season identifier"
+      },
+      "query_params": {
+        "top_teams_per_group": "Number of top teams to return per group (default: 3)"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "season_code": "2025-FALL",
+          "start_date": "2025-10-14",
+          "end_date": "2025-12-15",
+          "status": "active"
+        },
+        "divisions": [
+          {
+            "division": "Division 2",
+            "groups": [
+              {
+                "group_name": "Group A",
+                "team_count": 16,
+                "matches_played": 12,
+                "top_teams": [
+                  {
+                    "rank": 1,
+                    "team_id": 42,
+                    "team_name": "EGKT",
+                    "total_score": 164,
+                    "matches_played": 12,
+                    "wins": 3
+                  },
+                  {
+                    "rank": 2,
+                    "team_id": 43,
+                    "team_name": "Team Alpha",
+                    "total_score": 148,
+                    "matches_played": 12,
+                    "wins": 2
+                  },
+                  {
+                    "rank": 3,
+                    "team_id": 44,
+                    "team_name": "Team Beta",
+                    "total_score": 142,
+                    "matches_played": 12,
+                    "wins": 1
+                  }
+                ]
+              },
+              {
+                "group_name": "Group B",
+                "team_count": 16,
+                "matches_played": 12,
+                "top_teams": [
+                  {
+                    "rank": 1,
+                    "team_id": 50,
+                    "team_name": "Team Gamma",
+                    "total_score": 172,
+                    "matches_played": 12,
+                    "wins": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "division": "Division 3",
+            "groups": [
+              {
+                "group_name": "Group A",
+                "team_count": 17,
+                "matches_played": 12,
+                "top_teams": [
+                  {
+                    "rank": 1,
+                    "team_id": 60,
+                    "team_name": "FJORDEN",
+                    "total_score": 186,
+                    "matches_played": 12,
+                    "wins": 3
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments",
+      "description": "List all tournaments",
+      "query_params": {
+        "status": "Filter by status (active, completed, upcoming)",
+        "page": "Page number (default: 1)",
+        "limit": "Results per page (default: 20)"
+      },
+      "response": {
+        "metadata": {
+          "pagination": {
+            "page": 1,
+            "limit": 20,
+            "total_tournaments": 2,
+            "total_pages": 1
+          }
+        },
+        "tournaments": [
+          {
+            "tournament_id": 1,
+            "tournament_name": "Norgesligaen",
+            "tournament_code": "NL",
+            "description": "The premier Norwegian PUBG league",
+            "status": "active",
+            "created_at": "2025-01-01T00:00:00Z",
+            "current_season": {
+              "season_id": 1,
+              "season_name": "Fall 2025",
+              "status": "active"
+            },
+            "total_seasons": 3
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}",
+      "description": "Get tournament details",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier"
+      },
+      "response": {
+        "tournament_id": 1,
+        "tournament_name": "Norgesligaen",
+        "tournament_code": "NL",
+        "description": "The premier Norwegian PUBG league",
+        "status": "active",
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-10-14T00:00:00Z",
+        "seasons": [
+          {
+            "season_id": 1,
+            "season_name": "Fall 2025",
+            "season_code": "2025-FALL",
+            "start_date": "2025-10-14",
+            "end_date": "2025-12-15",
+            "status": "active",
+            "total_rounds": 8,
+            "completed_rounds": 2
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons",
+      "description": "List all seasons for a tournament",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier"
+      },
+      "query_params": {
+        "status": "Filter by status (active, completed, upcoming)",
+        "page": "Page number (default: 1)",
+        "limit": "Results per page (default: 20)"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "pagination": {
+            "page": 1,
+            "limit": 20,
+            "total_seasons": 3,
+            "total_pages": 1
+          }
+        },
+        "seasons": [
+          {
+            "season_id": 1,
+            "season_name": "Fall 2025",
+            "season_code": "2025-FALL",
+            "start_date": "2025-10-14",
+            "end_date": "2025-12-15",
+            "status": "active",
+            "total_rounds": 8,
+            "completed_rounds": 2,
+            "total_matches": 96,
+            "points_config": {
+              "1": 10,
+              "2": 6,
+              "3": 5,
+              "4": 4,
+              "5": 3,
+              "6": 2,
+              "7": 1,
+              "8": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "endpoint": "GET /v1/tournaments/{tournament_id}/seasons/{season_id}/rounds",
+      "description": "List all rounds for a season",
+      "path_parameters": {
+        "tournament_id": "Tournament identifier",
+        "season_id": "Season identifier"
+      },
+      "query_params": {
+        "division": "Filter by division",
+        "group": "Filter by group",
+        "status": "Filter by status (scheduled, active, completed, cancelled)",
+        "page": "Page number (default: 1)",
+        "limit": "Results per page (default: 20)"
+      },
+      "response": {
+        "metadata": {
+          "tournament_id": 1,
+          "tournament_name": "Norgesligaen",
+          "season_id": 1,
+          "season_name": "Fall 2025",
+          "pagination": {
+            "page": 1,
+            "limit": 20,
+            "total_rounds": 8,
+            "total_pages": 1
+          }
+        },
+        "rounds": [
+          {
+            "round_id": 15,
+            "round_number": 1,
+            "round_name": "Round 1",
+            "division": "Division 2",
+            "group_name": "Group A",
+            "start_date": "2025-10-14",
+            "end_date": "2025-10-14",
+            "status": "completed",
+            "expected_matches": 6,
+            "actual_matches": 6,
+            "description": "First round of Fall 2025 season"
+          }
+        ]
+      }
+    }
+  ],
+  "notes": {
+    "placement_points_calculation": "Use the points_config from tournament_seasons table to map placement (1-8) to points. Points: 1st=10p, 2nd=6p, 3rd=5p, 4th=4p, 5th=3p, 6th=2p, 7th=1p, 8th=1p. Placements 9-16 receive 0 points.",
+    "total_score_formula": "total_score = placement_points + kills",
+    "hierarchy": "Tournament → Season → Round → Match. Each entity can only belong to one parent.",
+    "filtering": "All endpoints support filtering by division/group for multi-division tournaments",
+    "pagination": "Player endpoints support pagination with ?page=N&limit=M (default limit=50, max=100)",
+    "sorting": "Player stats endpoints support ?sort_by=kills|damage|knocks|revives|assists with ?order=asc|desc",
+    "caching": "These endpoints should be cached, especially season-level aggregations",
+    "api_versioning": "All endpoints are versioned (/v1/...) to support future changes without breaking existing clients",
+    "cors": "CORS should be configured to allow requests from WordPress frontend domain"
+  }
+}

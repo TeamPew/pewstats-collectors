@@ -1317,10 +1317,9 @@ class DatabaseManager:
 
         Args:
             positions: List of position dictionaries with:
-                - match_id, player_name, sample_time
-                - player_x, player_y, circle_center_x, circle_center_y, circle_radius
-                - distance_from_center, distance_from_edge, is_outside_zone
-                - phase_number, match_datetime
+                - match_id, player_name, elapsed_time
+                - player_x, player_y, safe_zone_center_x, safe_zone_center_y, safe_zone_radius
+                - distance_from_center, distance_from_edge, is_in_safe_zone
 
         Returns:
             Number of positions inserted
@@ -1334,19 +1333,17 @@ class DatabaseManager:
         try:
             query = sql.SQL("""
                 INSERT INTO player_circle_positions (
-                    match_id, player_name, sample_time,
+                    match_id, player_name, elapsed_time,
                     player_x, player_y,
-                    circle_center_x, circle_center_y, circle_radius,
-                    distance_from_center, distance_from_edge, is_outside_zone,
-                    phase_number, match_datetime
+                    safe_zone_center_x, safe_zone_center_y, safe_zone_radius,
+                    distance_from_center, distance_from_edge, is_in_safe_zone
                 ) VALUES (
-                    %(match_id)s, %(player_name)s, %(sample_time)s,
+                    %(match_id)s, %(player_name)s, %(elapsed_time)s,
                     %(player_x)s, %(player_y)s,
-                    %(circle_center_x)s, %(circle_center_y)s, %(circle_radius)s,
-                    %(distance_from_center)s, %(distance_from_edge)s, %(is_outside_zone)s,
-                    %(phase_number)s, %(match_datetime)s
+                    %(safe_zone_center_x)s, %(safe_zone_center_y)s, %(safe_zone_radius)s,
+                    %(distance_from_center)s, %(distance_from_edge)s, %(is_in_safe_zone)s
                 )
-                ON CONFLICT (match_id, player_name, sample_time) DO NOTHING
+                ON CONFLICT DO NOTHING
             """)
 
             with self._get_connection() as conn:

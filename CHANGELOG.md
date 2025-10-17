@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.16.1...v1.16.2) (2025-10-17)
+
+
+### Bug Fixes
+
+* correct circle positions table column names ([5e60b83](https://github.com/TeamPew/pewstats-collectors/commit/5e60b83940609d3100e6fac3ce37bed8deba9cd4))
+* correct circle positions table column names ([7fc7959](https://github.com/TeamPew/pewstats-collectors/commit/7fc7959e23899e661f2afecf9169c7455d26eb31))
+
 ## [1.16.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.16.0...v1.16.1) (2025-10-17)
 
 

@@ -46,7 +46,7 @@ class TelemetryProcessingWorker:
         database_manager: DatabaseManager,
         worker_id: str,
         logger: Optional[logging.Logger] = None,
-        metrics_port: int = 9093,
+        metrics_port: Optional[int] = 9093,
     ):
         """
         Initialize telemetry processing worker.
@@ -55,7 +55,7 @@ class TelemetryProcessingWorker:
             database_manager: Database manager instance
             worker_id: Unique worker identifier
             logger: Optional logger instance
-            metrics_port: Port for Prometheus metrics server (default: 9093)
+            metrics_port: Port for Prometheus metrics server (default: 9093, None to skip)
         """
         self.database_manager = database_manager
         self.worker_id = worker_id
@@ -72,8 +72,9 @@ class TelemetryProcessingWorker:
         self._tracked_players_cache = set()
         self._tracked_players_cache_time = 0
 
-        # Start metrics server
-        start_metrics_server(port=metrics_port, worker_name=f"telemetry-processing-{worker_id}")
+        # Start metrics server (skip if metrics_port is None, for child processes)
+        if metrics_port is not None:
+            start_metrics_server(port=metrics_port, worker_name=f"telemetry-processing-{worker_id}")
 
         self.logger.info(f"[{self.worker_id}] Telemetry processing worker initialized")
 

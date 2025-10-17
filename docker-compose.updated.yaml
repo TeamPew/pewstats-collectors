@@ -1,0 +1,367 @@
+services:
+  # Match Discovery Service - Discovers new matches for tracked players
+  match-discovery:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["discover-matches", "--continuous", "--interval", "600"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # PUBG API configuration (uses main pipeline keys)
+      - PUBG_API_KEYS=${PUBG_MAIN_KEYS:-${PUBG_API_KEYS}}
+      - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+  # Match Summary Worker - Processes match details and extracts participant data
+  match-summary-worker:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.workers.match_summary_worker"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # PUBG API configuration
+      - PUBG_API_KEYS=${PUBG_API_KEYS}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=match-summary-worker-1
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+  # Telemetry Download Worker - Downloads telemetry JSON files
+  telemetry-download-worker:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.workers.telemetry_download_worker"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # Storage configuration
+      - TELEMETRY_STORAGE_PATH=/opt/pewstats-platform/data/telemetry
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=telemetry-download-worker-1
+    volumes:
+      - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+  # Telemetry Processing Worker 1 - Processes telemetry events with parallel processing
+  telemetry-processing-worker-1:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.workers.parallel_telemetry_processing_worker"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # Storage configuration
+      - TELEMETRY_STORAGE_PATH=/opt/pewstats-platform/data/telemetry
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=telemetry-processing-worker-1
+      - WORKER_POOL_SIZE=2
+    volumes:
+      - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+  # Telemetry Processing Worker 2 - Processes telemetry events with parallel processing
+  telemetry-processing-worker-2:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.workers.parallel_telemetry_processing_worker"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # Storage configuration
+      - TELEMETRY_STORAGE_PATH=/opt/pewstats-platform/data/telemetry
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=telemetry-processing-worker-2
+      - WORKER_POOL_SIZE=2
+    volumes:
+      - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+  # Stats Aggregation Worker - Aggregates telemetry events into player stats
+  stats-aggregation-worker:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.workers.stats_aggregation_worker"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=stats-aggregation-worker-1
+      - BATCH_SIZE=${STATS_BATCH_SIZE:-100}
+      - AGGREGATION_INTERVAL=${STATS_AGGREGATION_INTERVAL:-300}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+  # Ranked Stats Collector - Collects ranked stats from PUBG API
+  # Runs every 3 hours, offset by 15 minutes to avoid overlap with match-discovery
+  ranked-stats-collector:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.services.ranked_stats_collector", "--continuous", "--interval", "10800", "--initial-delay", "900"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # PUBG API configuration
+      - PUBG_API_KEYS=${PUBG_API_KEYS}
+      - RANKED_API_KEY=${RANKED_API_KEY}
+      - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+  # Tournament Match Discovery - Discovers tournament matches with intelligent sampling
+  # Runs every 60 seconds during tournament hours (Mon-Thu, Sun 18:00-00:00)
+  # Only discovers custom esports matches from Oct 13, 2025 onwards
+  # Uses separate API keys to avoid rate limit collisions with main pipeline
+  tournament-discovery:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: [
+      "python3", "-m", "pewstats_collectors.services.tournament_match_discovery",
+      "--continuous",
+      "--interval", "60",
+      "--sample-size", "6",
+      "--schedule-enabled",
+      "--schedule-days", "0,1,2,3,6",
+      "--schedule-start", "18:00",
+      "--schedule-end", "00:00",
+      "--schedule-timezone", "Europe/Oslo"
+    ]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # PUBG API configuration (uses dedicated tournament keys)
+      - PUBG_API_KEYS=${PUBG_TOURNAMENT_KEYS:-${PUBG_API_KEYS}}
+      - PUBG_PLATFORM=${PUBG_PLATFORM:-steam}
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+networks:
+  pewstats-network:
+    external: true

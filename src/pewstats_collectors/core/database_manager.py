@@ -1228,3 +1228,176 @@ class DatabaseManager:
 
         except psycopg.Error as e:
             raise DatabaseError(f"Failed to insert fight participants: {e}")
+
+    # ========================================================================
+    # Enhanced Tournament Stats (New Processors)
+    # ========================================================================
+
+    def update_match_summaries_enhanced_stats(
+        self, match_id: str, player_stats: Dict[str, Dict[str, Any]]
+    ) -> int:
+        """Update match_summaries with enhanced stats for multiple players.
+
+        Updates columns added in migration 008:
+        - heals_used, boosts_used, throwables_used, smokes_thrown
+        - killsteals, throwable_damage, damage_received
+        - avg_distance_from_center, avg_distance_from_edge
+        - max_distance_from_center, min_distance_from_edge, time_outside_zone_seconds
+
+        Args:
+            match_id: Match ID
+            player_stats: Dictionary mapping player_name -> stats dict
+
+        Returns:
+            Number of rows updated
+
+        Raises:
+            DatabaseError: If update fails
+        """
+        if not player_stats:
+            return 0
+
+        try:
+            # Build UPDATE query for each player
+            query = sql.SQL("""
+                UPDATE match_summaries
+                SET
+                    heals_used = COALESCE(%(heals_used)s, heals_used),
+                    boosts_used = COALESCE(%(boosts_used)s, boosts_used),
+                    throwables_used = COALESCE(%(throwables_used)s, throwables_used),
+                    smokes_thrown = COALESCE(%(smokes_thrown)s, smokes_thrown),
+                    killsteals = COALESCE(%(killsteals)s, killsteals),
+                    throwable_damage = COALESCE(%(throwable_damage)s, throwable_damage),
+                    damage_received = COALESCE(%(damage_received)s, damage_received),
+                    avg_distance_from_center = COALESCE(%(avg_distance_from_center)s, avg_distance_from_center),
+                    avg_distance_from_edge = COALESCE(%(avg_distance_from_edge)s, avg_distance_from_edge),
+                    max_distance_from_center = COALESCE(%(max_distance_from_center)s, max_distance_from_center),
+                    min_distance_from_edge = COALESCE(%(min_distance_from_edge)s, min_distance_from_edge),
+                    time_outside_zone_seconds = COALESCE(%(time_outside_zone_seconds)s, time_outside_zone_seconds),
+                    updated_at = NOW()
+                WHERE match_id = %(match_id)s
+                  AND player_name = %(player_name)s
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Execute update for each player
+                    update_count = 0
+                    for player_name, stats in player_stats.items():
+                        params = {
+                            "match_id": match_id,
+                            "player_name": player_name,
+                            "heals_used": stats.get("heals_used"),
+                            "boosts_used": stats.get("boosts_used"),
+                            "throwables_used": stats.get("throwables_used"),
+                            "smokes_thrown": stats.get("smokes_thrown"),
+                            "killsteals": stats.get("killsteals"),
+                            "throwable_damage": stats.get("throwable_damage"),
+                            "damage_received": stats.get("damage_received"),
+                            "avg_distance_from_center": stats.get("avg_distance_from_center"),
+                            "avg_distance_from_edge": stats.get("avg_distance_from_edge"),
+                            "max_distance_from_center": stats.get("max_distance_from_center"),
+                            "min_distance_from_edge": stats.get("min_distance_from_edge"),
+                            "time_outside_zone_seconds": stats.get("time_outside_zone_seconds"),
+                        }
+                        cur.execute(query, params)
+                        update_count += cur.rowcount
+
+                    conn.commit()
+                    return update_count
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to update match summaries enhanced stats: {e}")
+
+    def insert_circle_positions(self, positions: List[Dict[str, Any]]) -> int:
+        """Insert player circle positions in bulk (tracked players only).
+
+        Stores detailed circle position samples for tracked players.
+        Uses ON CONFLICT DO NOTHING for idempotency.
+
+        Args:
+            positions: List of position dictionaries with:
+                - match_id, player_name, sample_time
+                - player_x, player_y, circle_center_x, circle_center_y, circle_radius
+                - distance_from_center, distance_from_edge, is_outside_zone
+                - phase_number, match_datetime
+
+        Returns:
+            Number of positions inserted
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not positions:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO player_circle_positions (
+                    match_id, player_name, sample_time,
+                    player_x, player_y,
+                    circle_center_x, circle_center_y, circle_radius,
+                    distance_from_center, distance_from_edge, is_outside_zone,
+                    phase_number, match_datetime
+                ) VALUES (
+                    %(match_id)s, %(player_name)s, %(sample_time)s,
+                    %(player_x)s, %(player_y)s,
+                    %(circle_center_x)s, %(circle_center_y)s, %(circle_radius)s,
+                    %(distance_from_center)s, %(distance_from_edge)s, %(is_outside_zone)s,
+                    %(phase_number)s, %(match_datetime)s
+                )
+                ON CONFLICT (match_id, player_name, sample_time) DO NOTHING
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, positions)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert circle positions: {e}")
+
+    def insert_weapon_distribution(self, distributions: List[Dict[str, Any]]) -> int:
+        """Insert weapon distribution stats in bulk.
+
+        Stores per-match weapon category distribution for all players.
+        Uses ON CONFLICT to update existing records.
+
+        Args:
+            distributions: List of distribution dictionaries with:
+                - match_id, player_name, weapon_category
+                - total_damage, total_kills, knock_downs
+
+        Returns:
+            Number of distributions inserted or updated
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not distributions:
+            return 0
+
+        try:
+            query = sql.SQL("""
+                INSERT INTO player_match_weapon_distribution (
+                    match_id, player_name, weapon_category,
+                    total_damage, total_kills, knock_downs
+                ) VALUES (
+                    %(match_id)s, %(player_name)s, %(weapon_category)s,
+                    %(total_damage)s, %(total_kills)s, %(knock_downs)s
+                )
+                ON CONFLICT (match_id, player_name, weapon_category) DO UPDATE SET
+                    total_damage = EXCLUDED.total_damage,
+                    total_kills = EXCLUDED.total_kills,
+                    knock_downs = EXCLUDED.knock_downs
+            """)
+
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, distributions)
+                    conn.commit()
+                    return cur.rowcount
+
+        except psycopg.Error as e:
+            raise DatabaseError(f"Failed to insert weapon distribution: {e}")

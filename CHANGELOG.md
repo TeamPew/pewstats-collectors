@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.16.0...v1.16.1) (2025-10-17)
+
+
+### Bug Fixes
+
+* remove unused variable in weapon_distribution extractor ([b23861e](https://github.com/TeamPew/pewstats-collectors/commit/b23861eb7df98de7c1d76086deb8cfe76ba75964))
+
 ## [1.16.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.15.1...v1.16.0) (2025-10-17)
 
 

@@ -56,3 +56,7 @@ The GitHub Actions workflow runs the following checks:
 - Date: 2025-10-14
 - Issue encountered: Committed code without running ruff format, causing CI/CD failure
 - Resolution: Always run `ruff format src/ tests/` before committing
+
+- Date: 2025-10-17
+- Issue encountered: Committed parallel_telemetry_processing_worker.py without running ruff format
+- Resolution: Formatted file and pushed fix. **REMINDER**: Always run `ruff format src/ tests/` before every commit!

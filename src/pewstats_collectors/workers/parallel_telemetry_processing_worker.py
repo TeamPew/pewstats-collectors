@@ -201,8 +201,7 @@ class ParallelTelemetryProcessingWorker:
                     duration
                 )
                 self.logger.info(
-                    f"[{self.worker_id}] Successfully processed match {match_id} "
-                    f"in {duration:.2f}s"
+                    f"[{self.worker_id}] Successfully processed match {match_id} in {duration:.2f}s"
                 )
             else:
                 self.error_count += 1

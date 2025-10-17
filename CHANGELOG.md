@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.17.0...v1.17.1) (2025-10-17)
+
+
+### Bug Fixes
+
+* rewrite circle tracking to use LogPlayerPosition events ([d40d152](https://github.com/TeamPew/pewstats-collectors/commit/d40d15295a00d42cfcdf99796693dd6f9ed4518a))
+* rewrite circle tracking to use LogPlayerPosition events ([472dd98](https://github.com/TeamPew/pewstats-collectors/commit/472dd98df9923dafc592558f2abd619ca68ec427))
+
 ## [1.17.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.16.2...v1.17.0) (2025-10-17)
 
 

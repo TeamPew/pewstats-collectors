@@ -136,10 +136,10 @@ services:
     networks:
       - pewstats-network
 
-  # Telemetry Processing Worker - Processes telemetry events and extracts data
-  telemetry-processing-worker:
+  # Telemetry Processing Worker 1 - Processes telemetry events with parallel processing
+  telemetry-processing-worker-1:
     image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
-    command: ["python3", "-m", "pewstats_collectors.workers.telemetry_processing_worker"]
+    command: ["python3", "-m", "pewstats_collectors.workers.parallel_telemetry_processing_worker"]
     # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
     environment:
       # Database configuration
@@ -160,10 +160,57 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - WORKER_ID=telemetry-processing-worker-1
+      - WORKER_POOL_SIZE=2
     volumes:
       - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry:ro
     deploy:
-      replicas: 2
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - pewstats-network
+
+  # Telemetry Processing Worker 2 - Processes telemetry events with parallel processing
+  telemetry-processing-worker-2:
+    image: ghcr.io/teampew/pewstats-collectors:${IMAGE_TAG:-production}
+    command: ["python3", "-m", "pewstats_collectors.workers.parallel_telemetry_processing_worker"]
+    # Note: Metrics ports not exposed to host - Prometheus scrapes via Docker network
+    environment:
+      # Database configuration
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # RabbitMQ configuration
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # Storage configuration
+      - TELEMETRY_STORAGE_PATH=/opt/pewstats-platform/data/telemetry
+      # Service configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - WORKER_ID=telemetry-processing-worker-2
+      - WORKER_POOL_SIZE=2
+    volumes:
+      - /opt/pewstats-platform/data/telemetry:/opt/pewstats-platform/data/telemetry:ro
+    deploy:
       resources:
         limits:
           cpus: "2"

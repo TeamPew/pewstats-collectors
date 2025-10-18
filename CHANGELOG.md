@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.19.0...v1.20.0) (2025-10-18)
+
+
+### Features
+
+* add parallel processing support to run_backfill.sh ([ba6869c](https://github.com/TeamPew/pewstats-collectors/commit/ba6869cdc45d09d4d8399f2595cc7a12efddb703))
+* add parallel processing support to run_backfill.sh ([b237729](https://github.com/TeamPew/pewstats-collectors/commit/b237729eae91a80c7d2ae4290a60a75060cc9c87))
+
 ## [1.19.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.18.1...v1.19.0) (2025-10-18)
 
 

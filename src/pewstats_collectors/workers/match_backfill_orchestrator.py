@@ -211,10 +211,23 @@ class MatchBackfillOrchestrator:
                 self.logger.warning(f"Telemetry file not found for match {match_id}")
                 return result
 
-            # Load telemetry data (files are double-gzipped)
-            with gzip.open(telemetry_path, "rb") as f_outer:
-                with gzip.open(f_outer, "rt", encoding="utf-8") as f_inner:
-                    telemetry_data = json.load(f_inner)
+            # Load telemetry data (files may be single or double-gzipped)
+            # Try single gzip first (newer files), fall back to double gzip (older files)
+            telemetry_data = None
+            try:
+                # Try single gzip first
+                with gzip.open(telemetry_path, "rt", encoding="utf-8") as f:
+                    telemetry_data = json.load(f)
+            except (gzip.BadGzipFile, UnicodeDecodeError, json.JSONDecodeError):
+                # Try double gzip (older files)
+                try:
+                    with gzip.open(telemetry_path, "rb") as f_outer:
+                        with gzip.open(f_outer, "rt", encoding="utf-8") as f_inner:
+                            telemetry_data = json.load(f_inner)
+                except Exception as e:
+                    result["error"] = f"Failed to decompress telemetry file: {str(e)}"
+                    self.logger.error(f"Failed to decompress telemetry for match {match_id}: {e}")
+                    return result
 
             if not isinstance(telemetry_data, list):
                 result["error"] = "Invalid telemetry format"

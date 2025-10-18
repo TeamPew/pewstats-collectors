@@ -1110,38 +1110,47 @@ class TelemetryProcessingWorker:
             "Item_Boost_PainKiller_C",
             "Item_Boost_AdrenalineSyringe_C",
         }
-        throwable_items = {
-            "Item_Weapon_Grenade_C",
-            "Item_Weapon_Molotov_C",
-            "Item_Weapon_C4_C",
-            "Item_Weapon_StickyGrenade_C",
-            "Item_Weapon_PanzerFaust100M_C",
-        }
         smoke_items = {"Item_Weapon_SmokeBomb_C", "Item_Weapon_Flashbang_C"}
+
+        # Track throwables that caused damage (more reliable than LogItemUse)
+        throwables_thrown = defaultdict(set)  # player -> set of damage timestamps
 
         for event in events:
             event_type = get_event_type(event)
 
-            if event_type != "LogItemUse":
-                continue
+            if event_type == "LogItemUse":
+                character = event.get("character") or {}
+                player_name = character.get("name")
+                item = event.get("item") or {}
+                item_id = item.get("itemId")
 
-            character = event.get("character") or {}
-            player_name = character.get("name")
-            item = event.get("item") or {}
-            item_id = item.get("itemId")
+                if not player_name or not item_id:
+                    continue
 
-            if not player_name or not item_id:
-                continue
+                # Categorize and count (excluding throwables - tracked separately)
+                if item_id in heal_items:
+                    player_stats[player_name]["heals_used"] += 1
+                elif item_id in boost_items:
+                    player_stats[player_name]["boosts_used"] += 1
+                elif item_id in smoke_items:
+                    player_stats[player_name]["smokes_thrown"] += 1
 
-            # Categorize and count
-            if item_id in heal_items:
-                player_stats[player_name]["heals_used"] += 1
-            elif item_id in boost_items:
-                player_stats[player_name]["boosts_used"] += 1
-            elif item_id in throwable_items:
-                player_stats[player_name]["throwables_used"] += 1
-            elif item_id in smoke_items:
-                player_stats[player_name]["smokes_thrown"] += 1
+            elif event_type == "LogPlayerTakeDamage":
+                # Track throwables by damage events (more reliable)
+                attacker = event.get("attacker") or {}
+                attacker_name = attacker.get("name")
+                weapon = event.get("damageCauserName")
+                timestamp = event.get("_D")
+
+                if attacker_name and weapon and timestamp:
+                    weapon_cat = get_weapon_category(weapon)
+                    if weapon_cat == "Throwable":
+                        # Use timestamp to avoid counting same throwable multiple times
+                        throwables_thrown[attacker_name].add(timestamp)
+
+        # Count unique throwables per player
+        for player_name, timestamps in throwables_thrown.items():
+            player_stats[player_name]["throwables_used"] = len(timestamps)
 
         return dict(player_stats)
 

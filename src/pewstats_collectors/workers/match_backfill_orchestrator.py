@@ -27,8 +27,7 @@ from pewstats_collectors.workers.telemetry_processing_worker import TelemetryPro
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -130,9 +129,7 @@ class MatchBackfillOrchestrator:
             limit,
         )
 
-        self.logger.info(
-            f"Querying matches to backfill since {since_date}, limit={limit}"
-        )
+        self.logger.info(f"Querying matches to backfill since {since_date}, limit={limit}")
 
         with self.db_manager._get_connection() as conn:
             with conn.cursor() as cursor:
@@ -183,9 +180,7 @@ class MatchBackfillOrchestrator:
 
             if not isinstance(telemetry_data, list):
                 result["error"] = "Invalid telemetry format"
-                self.logger.error(
-                    f"Invalid telemetry format for match {match_id}: expected list"
-                )
+                self.logger.error(f"Invalid telemetry format for match {match_id}: expected list")
                 return result
 
             # Get match data
@@ -224,10 +219,8 @@ class MatchBackfillOrchestrator:
             )
 
             # 3. Circle tracking
-            circle_stats, circle_positions = (
-                self.telemetry_processor.extract_circle_tracking(
-                    telemetry_data, match_id, match_data
-                )
+            circle_stats, circle_positions = self.telemetry_processor.extract_circle_tracking(
+                telemetry_data, match_id, match_data
             )
 
             # 4. Weapon distribution
@@ -273,9 +266,7 @@ class MatchBackfillOrchestrator:
 
             # Insert weapon distributions
             if weapon_distributions:
-                inserted = self.db_manager.insert_weapon_distribution(
-                    weapon_distributions
-                )
+                inserted = self.db_manager.insert_weapon_distribution(weapon_distributions)
                 result["weapon_distributions_inserted"] = inserted
 
             result["success"] = True
@@ -314,9 +305,7 @@ class MatchBackfillOrchestrator:
         Returns:
             Summary of backfill results
         """
-        self.logger.info(
-            f"Starting match backfill: since={since_date}, max_matches={max_matches}"
-        )
+        self.logger.info(f"Starting match backfill: since={since_date}, max_matches={max_matches}")
 
         start_time = time.time()
         summary = {
@@ -330,9 +319,7 @@ class MatchBackfillOrchestrator:
         }
 
         # Get matches to backfill
-        matches = self.get_matches_to_backfill(
-            since_date=since_date, limit=max_matches
-        )
+        matches = self.get_matches_to_backfill(since_date=since_date, limit=max_matches)
 
         summary["total_matches"] = len(matches)
 
@@ -356,14 +343,10 @@ class MatchBackfillOrchestrator:
                 summary["successful"] += 1
                 summary["total_players_updated"] += result["enhanced_stats_updated"]
                 summary["total_circle_positions"] += result["circle_positions_inserted"]
-                summary["total_weapon_distributions"] += result[
-                    "weapon_distributions_inserted"
-                ]
+                summary["total_weapon_distributions"] += result["weapon_distributions_inserted"]
             else:
                 summary["failed"] += 1
-                summary["errors"].append(
-                    {"match_id": match_id, "error": result["error"]}
-                )
+                summary["errors"].append({"match_id": match_id, "error": result["error"]})
 
             # Log progress every 10 matches or every 1000 matches
             if i % 1000 == 0 or i % 10 == 0:
@@ -377,9 +360,7 @@ class MatchBackfillOrchestrator:
 
         total_time = time.time() - start_time
         summary["processing_time_seconds"] = total_time
-        summary["avg_time_per_match"] = (
-            total_time / len(matches) if matches else 0
-        )
+        summary["avg_time_per_match"] = total_time / len(matches) if matches else 0
 
         self.logger.info(
             f"Backfill complete: "
@@ -393,9 +374,7 @@ class MatchBackfillOrchestrator:
         if summary["errors"]:
             self.logger.warning(f"Errors encountered: {len(summary['errors'])}")
             for error in summary["errors"][:5]:  # Log first 5 errors
-                self.logger.warning(
-                    f"  Match {error['match_id']}: {error['error']}"
-                )
+                self.logger.warning(f"  Match {error['match_id']}: {error['error']}")
 
         return summary
 
@@ -431,9 +410,7 @@ def main():
 
     orchestrator = MatchBackfillOrchestrator(batch_size=args.max_matches)
 
-    summary = orchestrator.run_backfill(
-        since_date=args.since, max_matches=args.max_matches
-    )
+    summary = orchestrator.run_backfill(since_date=args.since, max_matches=args.max_matches)
 
     # Print summary
     print("\n" + "=" * 80)

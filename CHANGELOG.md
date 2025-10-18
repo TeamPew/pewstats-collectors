@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.19.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.18.1...v1.19.0) (2025-10-18)
+
+
+### Features
+
+* add parallel processing to backfill orchestrator ([952c6eb](https://github.com/TeamPew/pewstats-collectors/commit/952c6ebd40a23c130c2c9c725409ffa6b427377f))
+
+
+### Bug Fixes
+
+* remove unused functools.partial import ([3a5ca4f](https://github.com/TeamPew/pewstats-collectors/commit/3a5ca4f3a4c9aa8ab0f85e3b3579541bca44703f))
+
 ## [1.18.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.18.0...v1.18.1) (2025-10-18)
 
 

@@ -1144,7 +1144,12 @@ class TelemetryProcessingWorker:
                 if weapon_subcategory == "Throwable":
                     weapon_id = weapon.get("itemId", "")
 
-                    # All throwables count towards throwables_used
+                    # Exclude novelty throwables (snowballs, apples) - not tactical items
+                    novelty_throwables = {"Item_Weapon_Snowball_C", "Item_Weapon_Apple_C"}
+                    if weapon_id in novelty_throwables:
+                        continue
+
+                    # All tactical throwables count towards throwables_used
                     player_stats[attacker_name]["throwables_used"] += 1
 
                     # Smokes also count separately

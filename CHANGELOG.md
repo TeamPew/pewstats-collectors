@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.20.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.20.0...v1.20.1) (2025-10-18)
+
+
+### Bug Fixes
+
+* filter backfill query to skip matches without telemetry files ([7c1ce28](https://github.com/TeamPew/pewstats-collectors/commit/7c1ce284102459a1bcacc3fab7148968eee0ee8f))
+* handle both single and double-gzipped telemetry files in backfill ([22400ec](https://github.com/TeamPew/pewstats-collectors/commit/22400ec6262623bdb3cac0ef4f0e098c3baaede5))
+* handle double-gzipped telemetry files in backfill ([824310c](https://github.com/TeamPew/pewstats-collectors/commit/824310c9612cc1c1873f62df19c0d7289711235a))
+
 ## [1.20.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.19.0...v1.20.0) (2025-10-18)
 
 

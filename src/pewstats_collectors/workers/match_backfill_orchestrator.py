@@ -21,6 +21,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List
+from multiprocessing import Pool
 
 from pewstats_collectors.core.database_manager import DatabaseManager
 from pewstats_collectors.workers.telemetry_processing_worker import TelemetryProcessingWorker
@@ -30,6 +31,17 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+def _process_match_parallel(match_id: str) -> Dict[str, Any]:
+    """
+    Process a single match in parallel worker.
+
+    This function is defined at module level to be picklable for multiprocessing.
+    Each worker creates its own database connection.
+    """
+    orchestrator = MatchBackfillOrchestrator(worker_id=f"backfill-worker-{os.getpid()}")
+    return orchestrator.backfill_match(match_id)
 
 
 class MatchBackfillOrchestrator:
@@ -289,6 +301,7 @@ class MatchBackfillOrchestrator:
         self,
         since_date: str = "2025-07-29",
         max_matches: int = 50,
+        workers: int = 1,
     ) -> Dict[str, Any]:
         """
         Run backfill for multiple matches.
@@ -301,11 +314,14 @@ class MatchBackfillOrchestrator:
         Args:
             since_date: Start date for backfill (YYYY-MM-DD)
             max_matches: Maximum number of matches to process
+            workers: Number of parallel workers (1 = sequential, 8 = recommended for parallel)
 
         Returns:
             Summary of backfill results
         """
-        self.logger.info(f"Starting match backfill: since={since_date}, max_matches={max_matches}")
+        self.logger.info(
+            f"Starting match backfill: since={since_date}, max_matches={max_matches}, workers={workers}"
+        )
 
         start_time = time.time()
         summary = {
@@ -329,34 +345,74 @@ class MatchBackfillOrchestrator:
             summary["avg_time_per_match"] = 0
             return summary
 
-        # Process each match
-        for i, match in enumerate(matches, 1):
-            match_id = match["match_id"]
-            self.logger.info(
-                f"Backfilling match {i}/{len(matches)}: {match_id} "
-                f"({match['game_mode']}, {match['match_datetime']}, {match['player_count']} players)"
-            )
+        # Process matches (parallel or sequential based on workers parameter)
+        match_ids = [m["match_id"] for m in matches]
 
-            result = self.backfill_match(match_id)
+        if workers > 1:
+            # Parallel processing using multiprocessing
+            self.logger.info(f"Processing {len(matches)} matches with {workers} parallel workers")
+            with Pool(processes=workers) as pool:
+                results = []
+                for i, result in enumerate(
+                    pool.imap_unordered(_process_match_parallel, match_ids), 1
+                ):
+                    results.append(result)
 
-            if result["success"]:
-                summary["successful"] += 1
-                summary["total_players_updated"] += result["enhanced_stats_updated"]
-                summary["total_circle_positions"] += result["circle_positions_inserted"]
-                summary["total_weapon_distributions"] += result["weapon_distributions_inserted"]
-            else:
-                summary["failed"] += 1
-                summary["errors"].append({"match_id": match_id, "error": result["error"]})
+                    if result["success"]:
+                        summary["successful"] += 1
+                        summary["total_players_updated"] += result["enhanced_stats_updated"]
+                        summary["total_circle_positions"] += result["circle_positions_inserted"]
+                        summary["total_weapon_distributions"] += result[
+                            "weapon_distributions_inserted"
+                        ]
+                    else:
+                        summary["failed"] += 1
+                        summary["errors"].append(
+                            {
+                                "match_id": result.get("match_id", "unknown"),
+                                "error": result["error"],
+                            }
+                        )
 
-            # Log progress every 10 matches or every 1000 matches
-            if i % 1000 == 0 or i % 10 == 0:
-                elapsed = time.time() - start_time
-                rate = i / elapsed if elapsed > 0 else 0
+                    # Log progress every 100 matches or every 1000 matches
+                    if i % 1000 == 0 or i % 100 == 0:
+                        elapsed = time.time() - start_time
+                        rate = i / elapsed if elapsed > 0 else 0
+                        self.logger.info(
+                            f"Progress: {i}/{len(matches)} matches "
+                            f"({summary['successful']} successful, {summary['failed']} failed) "
+                            f"at {rate:.2f} matches/sec"
+                        )
+        else:
+            # Sequential processing
+            self.logger.info(f"Processing {len(matches)} matches sequentially")
+            for i, match in enumerate(matches, 1):
+                match_id = match["match_id"]
                 self.logger.info(
-                    f"Progress: {i}/{len(matches)} matches "
-                    f"({summary['successful']} successful, {summary['failed']} failed) "
-                    f"at {rate:.2f} matches/sec"
+                    f"Backfilling match {i}/{len(matches)}: {match_id} "
+                    f"({match['game_mode']}, {match['match_datetime']}, {match['player_count']} players)"
                 )
+
+                result = self.backfill_match(match_id)
+
+                if result["success"]:
+                    summary["successful"] += 1
+                    summary["total_players_updated"] += result["enhanced_stats_updated"]
+                    summary["total_circle_positions"] += result["circle_positions_inserted"]
+                    summary["total_weapon_distributions"] += result["weapon_distributions_inserted"]
+                else:
+                    summary["failed"] += 1
+                    summary["errors"].append({"match_id": match_id, "error": result["error"]})
+
+                # Log progress every 10 matches or every 1000 matches
+                if i % 1000 == 0 or i % 10 == 0:
+                    elapsed = time.time() - start_time
+                    rate = i / elapsed if elapsed > 0 else 0
+                    self.logger.info(
+                        f"Progress: {i}/{len(matches)} matches "
+                        f"({summary['successful']} successful, {summary['failed']} failed) "
+                        f"at {rate:.2f} matches/sec"
+                    )
 
         total_time = time.time() - start_time
         summary["processing_time_seconds"] = total_time
@@ -405,12 +461,20 @@ def main():
         default=50,
         help="Maximum number of matches to backfill",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of parallel workers (1=sequential, 8=recommended for parallel processing)",
+    )
 
     args = parser.parse_args()
 
     orchestrator = MatchBackfillOrchestrator(batch_size=args.max_matches)
 
-    summary = orchestrator.run_backfill(since_date=args.since, max_matches=args.max_matches)
+    summary = orchestrator.run_backfill(
+        since_date=args.since, max_matches=args.max_matches, workers=args.workers
+    )
 
     # Print summary
     print("\n" + "=" * 80)

@@ -19,9 +19,8 @@ import time
 import gzip
 import json
 import os
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
 from pathlib import Path
+from typing import Any, Dict, List
 
 from pewstats_collectors.core.database_manager import DatabaseManager
 from pewstats_collectors.workers.telemetry_processing_worker import TelemetryProcessingWorker

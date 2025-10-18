@@ -186,9 +186,10 @@ class MatchBackfillOrchestrator:
                 self.logger.warning(f"Telemetry file not found for match {match_id}")
                 return result
 
-            # Load telemetry data
-            with gzip.open(telemetry_path, "rt", encoding="utf-8") as f:
-                telemetry_data = json.load(f)
+            # Load telemetry data (files are double-gzipped)
+            with gzip.open(telemetry_path, "rb") as f_outer:
+                with gzip.open(f_outer, "rt", encoding="utf-8") as f_inner:
+                    telemetry_data = json.load(f_inner)
 
             if not isinstance(telemetry_data, list):
                 result["error"] = "Invalid telemetry format"

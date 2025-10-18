@@ -1165,11 +1165,11 @@ class TelemetryProcessingWorker:
             lambda: {"killsteals": 0, "throwable_damage": 0.0, "damage_received": 0.0}
         )
 
-        # Build damage timeline for killsteal detection
-        damage_timeline = []  # (timestamp, attacker, victim, damage, weapon)
-        kill_events = {}  # dbno_id -> killer_name
+        # Track knock and kill events for killsteal detection
+        # Killsteal = player knocked by Team A, but killed/finished by Team B (where A != B)
+        knock_events = {}  # dbno_id -> (knocker_name, knocker_team_id)
 
-        # Pass 1: Collect damage events
+        # Pass 1: Collect all events
         for event in events:
             event_type = get_event_type(event)
 
@@ -1179,19 +1179,7 @@ class TelemetryProcessingWorker:
                 attacker_name = attacker.get("name")
                 victim_name = victim.get("name")
                 damage = event.get("damage", 0)
-                timestamp = event.get("_D")
                 weapon = event.get("damageCauserName")
-
-                if attacker_name and victim_name and timestamp:
-                    damage_timeline.append(
-                        {
-                            "timestamp": timestamp,
-                            "attacker": attacker_name,
-                            "victim": victim_name,
-                            "damage": damage,
-                            "weapon": weapon,
-                        }
-                    )
 
                 # Track damage received
                 if victim_name:
@@ -1203,57 +1191,36 @@ class TelemetryProcessingWorker:
                     if weapon_cat == "Throwable":
                         player_stats[attacker_name]["throwable_damage"] += damage
 
+            elif event_type == "LogPlayerMakeGroggy":
+                # Player was knocked down
+                attacker = event.get("attacker") or {}
+                victim = event.get("victim") or {}
+                dbno_id = event.get("dBNOId")
+
+                knocker_name = attacker.get("name")
+                knocker_team_id = attacker.get("teamId")
+
+                if dbno_id and knocker_name and knocker_team_id is not None:
+                    knock_events[dbno_id] = (knocker_name, knocker_team_id)
+
             elif event_type == "LogPlayerKillV2":
+                # Player was killed/finished
                 killer = event.get("killer") or {}
                 dbno_id = event.get("dBNOId")
-                if dbno_id:
-                    kill_events[dbno_id] = killer.get("name")
 
-        # Pass 2: Detect killsteals
-        # A killsteal occurs when:
-        # - Player A damages victim within last 10 seconds before death
-        # - Player B gets the final blow
-        # - Player A != Player B
-
-        for event in events:
-            event_type = get_event_type(event)
-
-            if event_type == "LogPlayerKillV2":
-                killer = event.get("killer") or {}
-                victim = event.get("victim") or {}
                 killer_name = killer.get("name")
-                victim_name = victim.get("name")
-                kill_time = event.get("_D")
+                killer_team_id = killer.get("teamId")
 
-                if not (killer_name and victim_name and kill_time):
+                if not (dbno_id and killer_name and killer_team_id is not None):
                     continue
 
-                # Find recent damage to this victim
-                try:
-                    kill_dt = datetime.fromisoformat(kill_time.replace("Z", "+00:00"))
+                # Check if this was a killsteal
+                if dbno_id in knock_events:
+                    knocker_name, knocker_team_id = knock_events[dbno_id]
 
-                    # Check damage events in last 10 seconds
-                    for dmg_event in damage_timeline:
-                        if dmg_event["victim"] != victim_name:
-                            continue
-
-                        if dmg_event["attacker"] == killer_name:
-                            continue  # Killer did this damage, not a killsteal
-
-                        try:
-                            dmg_dt = datetime.fromisoformat(
-                                dmg_event["timestamp"].replace("Z", "+00:00")
-                            )
-                            time_diff = (kill_dt - dmg_dt).total_seconds()
-
-                            if 0 < time_diff <= 10:
-                                # This is a killsteal for the damage dealer
-                                player_stats[dmg_event["attacker"]]["killsteals"] += 1
-                        except (ValueError, AttributeError):
-                            pass
-
-                except (ValueError, AttributeError):
-                    pass
+                    # Killsteal if killer's team != knocker's team
+                    if killer_team_id != knocker_team_id:
+                        player_stats[killer_name]["killsteals"] += 1
 
         return dict(player_stats)
 

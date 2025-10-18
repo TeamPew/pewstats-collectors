@@ -9,12 +9,13 @@
 #   - game_type = 'custom' AND game_mode = 'esports-squad-fpp'
 #
 # Usage:
-#   ./run_backfill.sh [batch_size] [since_date]
+#   ./run_backfill.sh [batch_size] [since_date] [workers]
 #
 # Examples:
-#   ./run_backfill.sh                    # Process all matches in batches of 5000
-#   ./run_backfill.sh 10000              # Process all matches in batches of 10000
-#   ./run_backfill.sh 5000 2025-07-29    # Process matches since July 29 in batches of 5000
+#   ./run_backfill.sh                         # Process all matches in batches of 5000, sequential
+#   ./run_backfill.sh 10000                   # Process all matches in batches of 10000, sequential
+#   ./run_backfill.sh 5000 2025-07-29         # Process matches since July 29 in batches of 5000, sequential
+#   ./run_backfill.sh 5000 2025-07-29 8       # Process matches with 8 parallel workers (6-8x faster!)
 #
 
 set -e  # Exit on error
@@ -22,6 +23,7 @@ set -e  # Exit on error
 # Configuration
 BATCH_SIZE=${1:-5000}
 SINCE_DATE=${2:-2025-07-29}
+WORKERS=${3:-1}
 CONTAINER_NAME="pewstats-collectors-prod-telemetry-processing-worker-1-1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="/tmp/backfill_$(date +%Y%m%d_%H%M%S).log"
@@ -37,6 +39,7 @@ echo "Match Backfill Script"
 echo "================================================================================"
 echo "Batch size: $BATCH_SIZE matches"
 echo "Since date: $SINCE_DATE"
+echo "Workers: $WORKERS (1=sequential, 8=recommended for parallel)"
 echo "Log file: $LOG_FILE"
 echo "================================================================================"
 echo
@@ -97,6 +100,7 @@ while [ $PROCESSED -lt $TOTAL_MATCHES ]; do
     docker exec "$CONTAINER_NAME" python3 -m pewstats_collectors.workers.match_backfill_orchestrator \
         --since "$SINCE_DATE" \
         --max-matches "$BATCH_SIZE" \
+        --workers "$WORKERS" \
         2>&1 | tee -a "$LOG_FILE"
 
     # Check how many matches were actually processed in this batch

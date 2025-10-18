@@ -1110,7 +1110,7 @@ class TelemetryProcessingWorker:
             "Item_Boost_PainKiller_C",
             "Item_Boost_AdrenalineSyringe_C",
         }
-        smoke_items = {"Item_Weapon_SmokeBomb_C", "Item_Weapon_Flashbang_C"}
+        smoke_items = {"Item_Weapon_SmokeBomb_C"}
 
         for event in events:
             event_type = get_event_type(event)
@@ -1144,12 +1144,12 @@ class TelemetryProcessingWorker:
                 if weapon_subcategory == "Throwable":
                     weapon_id = weapon.get("itemId", "")
 
-                    # Distinguish between smokes/flashbangs and damage throwables
+                    # All throwables count towards throwables_used
+                    player_stats[attacker_name]["throwables_used"] += 1
+
+                    # Smokes also count separately
                     if weapon_id in smoke_items:
                         player_stats[attacker_name]["smokes_thrown"] += 1
-                    else:
-                        # Grenades, molotovs, C4, etc.
-                        player_stats[attacker_name]["throwables_used"] += 1
 
         return dict(player_stats)
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.17.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.17.1...v1.17.2) (2025-10-18)
+
+
+### Bug Fixes
+
+* correct killsteal detection logic ([26e97b9](https://github.com/TeamPew/pewstats-collectors/commit/26e97b9563aee5830edf84fe98cd0632a3163b71))
+* track throwable usage from damage events ([981ee15](https://github.com/TeamPew/pewstats-collectors/commit/981ee15e74be7a751bdba618f74851db7262e8e3))
+* track throwables from LogPlayerAttack events ([d5eea22](https://github.com/TeamPew/pewstats-collectors/commit/d5eea22731f1468cd8be3f07223cdc0a84941577))
+
 ## [1.17.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.17.0...v1.17.1) (2025-10-17)
 
 

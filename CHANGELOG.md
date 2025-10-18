@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.1](https://github.com/TeamPew/pewstats-collectors/compare/v1.18.0...v1.18.1) (2025-10-18)
+
+
+### Bug Fixes
+
+* exclude novelty throwables (snowballs, apples) from throwables_used ([b228455](https://github.com/TeamPew/pewstats-collectors/commit/b228455acd64945b94098aee99e62658f6cae1b0))
+* exclude novelty throwables (snowballs, apples) from throwables_used ([c050056](https://github.com/TeamPew/pewstats-collectors/commit/c050056c0d4fbbd7da271378f7a82390625cfeb9))
+
 ## [1.18.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.17.3...v1.18.0) (2025-10-18)
 
 

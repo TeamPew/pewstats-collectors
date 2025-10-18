@@ -1241,6 +1241,10 @@ class TelemetryProcessingWorker:
         Calculates aggregate stats for ALL players (for match_summaries).
         Stores detailed position data only for tracked players (87.5% savings).
 
+        Time outside zone is calculated from Damage_BlueZone events, which occur
+        every ~1.03 seconds (empirically verified). This is more accurate than
+        counting LogPlayerPosition samples.
+
         Note: LogGameStatePeriodic doesn't contain character positions, so we must
         combine it with LogPlayerPosition events.
 
@@ -1280,12 +1284,25 @@ class TelemetryProcessingWorker:
             # No circle data available
             return {}, []
 
-        # Step 2: Process LogPlayerPosition events and match to circle states
+        # Step 2: Count blue zone damage ticks for accurate time_outside_zone calculation
+        # Blue zone damage occurs at ~1.03 second intervals (empirically verified)
+        bluezone_tick_counts = defaultdict(int)
+        for event in events:
+            event_type = get_event_type(event)
+            if event_type == "LogPlayerTakeDamage":
+                damage_type = event.get("damageTypeCategory", "")
+                # Only count actual blue zone damage (not blue zone grenades)
+                if damage_type == "Damage_BlueZone":
+                    victim = event.get("victim") or {}
+                    victim_name = victim.get("name")
+                    if victim_name:
+                        bluezone_tick_counts[victim_name] += 1
+
+        # Step 3: Process LogPlayerPosition events and match to circle states
         player_samples = defaultdict(
             lambda: {
                 "distances_center": [],
                 "distances_edge": [],
-                "outside_zone_count": 0,
                 "total_samples": 0,
                 "positions": [],  # Detailed data (will be filtered)
             }
@@ -1338,9 +1355,6 @@ class TelemetryProcessingWorker:
             player_samples[player_name]["distances_edge"].append(distance_from_edge)
             player_samples[player_name]["total_samples"] += 1
 
-            if not is_in_safe_zone:
-                player_samples[player_name]["outside_zone_count"] += 1
-
             # Store detailed position ONLY for tracked players
             if player_name in tracked_players:
                 player_samples[player_name]["positions"].append(
@@ -1365,6 +1379,11 @@ class TelemetryProcessingWorker:
             if samples["total_samples"] == 0:
                 continue
 
+            # Calculate time outside zone from blue zone damage ticks
+            # Blue zone damage ticks occur every ~1.03 seconds (empirically verified)
+            bluezone_ticks = bluezone_tick_counts.get(player_name, 0)
+            time_outside_zone = round(bluezone_ticks * 1.03)
+
             aggregate_stats[player_name] = {
                 "avg_distance_from_center": sum(samples["distances_center"])
                 / len(samples["distances_center"]),
@@ -1376,8 +1395,7 @@ class TelemetryProcessingWorker:
                 "min_distance_from_edge": min(samples["distances_edge"])
                 if samples["distances_edge"]
                 else None,
-                "time_outside_zone_seconds": samples["outside_zone_count"]
-                * 1,  # Each LogPlayerPosition is roughly 1 second
+                "time_outside_zone_seconds": time_outside_zone,
             }
 
         # Collect detailed positions (tracked players only)

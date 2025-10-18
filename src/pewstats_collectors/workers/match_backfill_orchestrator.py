@@ -152,8 +152,33 @@ class MatchBackfillOrchestrator:
                 for row in rows:
                     matches.append(dict(row))
 
-        self.logger.info(f"Found {len(matches)} matches to backfill")
-        return matches
+        self.logger.info(f"Found {len(matches)} candidate matches from database")
+
+        # Filter out matches without telemetry files on disk
+        # This prevents reprocessing the same failed matches repeatedly
+        telemetry_dir = Path("/opt/pewstats-platform/data/telemetry")
+        matches_with_telemetry = []
+        matches_without_telemetry = []
+
+        for match in matches:
+            match_id = match["match_id"]
+            telemetry_path = telemetry_dir / f"matchID={match_id}" / "raw.json.gz"
+
+            if telemetry_path.exists():
+                matches_with_telemetry.append(match)
+            else:
+                matches_without_telemetry.append(match_id)
+
+        if matches_without_telemetry:
+            self.logger.warning(
+                f"Skipping {len(matches_without_telemetry)} matches without telemetry files "
+                f"(first 5: {matches_without_telemetry[:5]})"
+            )
+
+        self.logger.info(
+            f"Found {len(matches_with_telemetry)} matches with telemetry files to backfill"
+        )
+        return matches_with_telemetry
 
     def backfill_match(self, match_id: str) -> Dict[str, Any]:
         """

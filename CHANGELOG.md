@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.0](https://github.com/TeamPew/pewstats-collectors/compare/v1.17.3...v1.18.0) (2025-10-18)
+
+
+### Features
+
+* improve time_outside_zone calculation using blue zone damage ticks ([17f921f](https://github.com/TeamPew/pewstats-collectors/commit/17f921fe0e0697b452af7c68948196670c366897))
+* improve time_outside_zone calculation using blue zone damage ticks ([f6219f1](https://github.com/TeamPew/pewstats-collectors/commit/f6219f1528b30aea5ea82a54faec4a81867c3933))
+
 ## [1.17.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.17.2...v1.17.3) (2025-10-18)
 
 

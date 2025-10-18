@@ -152,8 +152,33 @@ class MatchBackfillOrchestrator:
                 for row in rows:
                     matches.append(dict(row))
 
-        self.logger.info(f"Found {len(matches)} matches to backfill")
-        return matches
+        self.logger.info(f"Found {len(matches)} candidate matches from database")
+
+        # Filter out matches without telemetry files on disk
+        # This prevents reprocessing the same failed matches repeatedly
+        telemetry_dir = Path("/opt/pewstats-platform/data/telemetry")
+        matches_with_telemetry = []
+        matches_without_telemetry = []
+
+        for match in matches:
+            match_id = match["match_id"]
+            telemetry_path = telemetry_dir / f"matchID={match_id}" / "raw.json.gz"
+
+            if telemetry_path.exists():
+                matches_with_telemetry.append(match)
+            else:
+                matches_without_telemetry.append(match_id)
+
+        if matches_without_telemetry:
+            self.logger.warning(
+                f"Skipping {len(matches_without_telemetry)} matches without telemetry files "
+                f"(first 5: {matches_without_telemetry[:5]})"
+            )
+
+        self.logger.info(
+            f"Found {len(matches_with_telemetry)} matches with telemetry files to backfill"
+        )
+        return matches_with_telemetry
 
     def backfill_match(self, match_id: str) -> Dict[str, Any]:
         """
@@ -186,9 +211,23 @@ class MatchBackfillOrchestrator:
                 self.logger.warning(f"Telemetry file not found for match {match_id}")
                 return result
 
-            # Load telemetry data
-            with gzip.open(telemetry_path, "rt", encoding="utf-8") as f:
-                telemetry_data = json.load(f)
+            # Load telemetry data (files may be single or double-gzipped)
+            # Try single gzip first (newer files), fall back to double gzip (older files)
+            telemetry_data = None
+            try:
+                # Try single gzip first
+                with gzip.open(telemetry_path, "rt", encoding="utf-8") as f:
+                    telemetry_data = json.load(f)
+            except (gzip.BadGzipFile, UnicodeDecodeError, json.JSONDecodeError):
+                # Try double gzip (older files)
+                try:
+                    with gzip.open(telemetry_path, "rb") as f_outer:
+                        with gzip.open(f_outer, "rt", encoding="utf-8") as f_inner:
+                            telemetry_data = json.load(f_inner)
+                except Exception as e:
+                    result["error"] = f"Failed to decompress telemetry file: {str(e)}"
+                    self.logger.error(f"Failed to decompress telemetry for match {match_id}: {e}")
+                    return result
 
             if not isinstance(telemetry_data, list):
                 result["error"] = "Invalid telemetry format"

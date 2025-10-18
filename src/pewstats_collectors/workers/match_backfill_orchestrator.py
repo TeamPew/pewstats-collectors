@@ -22,7 +22,6 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List
 from multiprocessing import Pool
-from functools import partial
 
 from pewstats_collectors.core.database_manager import DatabaseManager
 from pewstats_collectors.workers.telemetry_processing_worker import TelemetryProcessingWorker

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.3](https://github.com/TeamPew/pewstats-collectors/compare/v1.17.2...v1.17.3) (2025-10-18)
+
+
+### Bug Fixes
+
+* exclude flashbangs from smokes_thrown tracking ([e300e7f](https://github.com/TeamPew/pewstats-collectors/commit/e300e7f4d6c64eeb0c15871291360238693b4b9a))
+* exclude flashbangs from smokes_thrown tracking ([871b6c0](https://github.com/TeamPew/pewstats-collectors/commit/871b6c03e81da5c202591c2fa06815d0f28b9c74))
+
 ## [1.17.2](https://github.com/TeamPew/pewstats-collectors/compare/v1.17.1...v1.17.2) (2025-10-18)
 
 
